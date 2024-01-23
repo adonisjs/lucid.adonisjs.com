@@ -23,6 +23,7 @@
 
 :root {
   --logo-width: 85px;
+  --mobile-logo-width: 25px;
   --font-mono: 'Roboto Mono';
   --sidebar-width: 280px;
   --sidebar-anchor-padding-left: 25px;
