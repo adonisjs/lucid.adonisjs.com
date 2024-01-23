@@ -1,0 +1,86 @@
+[
+  {
+    "permalink": "introduction",
+    "title": "Introduction",
+    "contentPath": "./guides/introduction.md",
+    "category": "Guides"
+  },
+  {
+    "permalink": "query-builder",
+    "title": "Query builder",
+    "contentPath": "./guides/query-builder.md",
+    "category": "Guides"
+  },
+  {
+    "permalink": "transactions",
+    "title": "Transactions",
+    "contentPath": "./guides/transactions.md",
+    "category": "Guides"
+  },
+  {
+    "permalink": "pagination",
+    "title": "Pagination",
+    "contentPath": "./guides/pagination.md",
+    "category": "Guides"
+  },
+  {
+    "permalink": "migrations",
+    "title": "Schema migrations",
+    "contentPath": "./guides/migrations.md",
+    "category": "Guides"
+  },
+  {
+    "permalink": "seeders",
+    "title": "Database seeders",
+    "contentPath": "./guides/seeders.md",
+    "category": "Guides"
+  },
+  {
+    "permalink": "debugging",
+    "title": "Debugging",
+    "contentPath": "./guides/debugging.md",
+    "category": "Guides"
+  },
+  {
+    "permalink": "orm/introduction",
+    "title": "Introduction",
+    "contentPath": "./orm/introduction.md",
+    "category": "ORM"
+  },
+  {
+    "permalink": "orm/crud-operations",
+    "title": "CRUD operations",
+    "contentPath": "./orm/crud_operations.md",
+    "category": "ORM"
+  },
+  {
+    "permalink": "orm/hooks",
+    "title": "Hooks",
+    "contentPath": "./orm/hooks.md",
+    "category": "ORM"
+  },
+  {
+    "permalink": "orm/query-scopes",
+    "title": "Query scopes",
+    "contentPath": "./orm/query_scopes.md",
+    "category": "ORM"
+  },
+  {
+    "permalink": "orm/serializing-models",
+    "title": "Serializing models",
+    "contentPath": "./orm/serializing_models.md",
+    "category": "ORM"
+  },
+  {
+    "permalink": "orm/relationships",
+    "title": "Relationships",
+    "contentPath": "./orm/relationships.md",
+    "category": "ORM"
+  },
+  {
+    "permalink": "orm/model-factories",
+    "title": "Model factories",
+    "contentPath": "./orm/model-factories.md",
+    "category": "ORM"
+  }
+]
