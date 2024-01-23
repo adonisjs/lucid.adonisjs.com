@@ -1,18 +1,18 @@
 {
   "links": {
     "home": {
-      "title": "Your project name",
+      "title": "Lucid",
       "href": "/"
     },
     "github": {
-      "title": "Your project on Github",
-      "href": "https://github.com/dimerapp"
+      "title": "Lucid on Github",
+      "href": "https://github.com/adonisjs/lucid"
     }
   },
   "sponsors_sources": [
   ],
   "search": {
   },
-  "fileEditBaseUrl": "https://github.com/dimerapp/docs-boilerplate/blob/develop",
-  "copyright": "Your project legal name"
+  "fileEditBaseUrl": "https://github.com/adonisjs/lucid.adonisjs.com/blob/main",
+  "copyright": "AdonisJS Lucid"
 }
