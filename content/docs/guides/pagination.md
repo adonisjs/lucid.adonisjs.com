@@ -1,7 +1,3 @@
----
-summary: Learn how to paginate results using the Lucid ORM
----
-
 # Pagination
 
 Lucid has inbuilt support for **offset-based pagination**. You can paginate the results of a query by chaining the `.paginate` method.
@@ -16,7 +12,7 @@ const posts = await db.from('posts').paginate(page, limit)
 console.log(posts)
 ```
 
-The `paginate` method returns an instance of the [SimplePaginatorClass](../../reference/database/query-builder.md#pagination). It holds the meta data for the pagination, alongside the fetched `rows`.
+The `paginate` method returns an instance of the [SimplePaginatorClass](https://github.com/adonisjs/lucid/blob/develop/src/database/paginator/simple_paginator.ts). It holds the meta data for the pagination, alongside the fetched `rows`.
 
 ```ts
 SimplePaginator {
@@ -85,7 +81,7 @@ Open the `posts/index.edge` file and paste the following code snippet inside it.
 The `getUrlsForRange` method accepts a range of pages and returns an array of objects with the following properties.
 
 ```ts
-;[
+[
   {
     url: '/?page=1',
     page: 1,
@@ -106,7 +102,7 @@ The `getUrlsForRange` method accepts a range of pages and returns an array of ob
 
 ## Serializing to JSON
 
-You can also serialize the paginator results to JSON by calling the `toJSON` method. It returns the key names in `camel_case` by default. However, you can pass a [naming strategy](../../reference/orm/naming-strategy.md#paginationmetakeys) to override the default convention.
+You can also serialize the paginator results to JSON by calling the `toJSON` method. It returns the key names in `camelCase` by default. However, you can pass a [naming strategy](../../reference/orm/naming-strategy.md#paginationmetakeys) to override the default convention.
 
 ```ts
 const posts = await db.from('posts').paginate(page, limit)
@@ -154,7 +150,7 @@ posts.namingStrategy = {
 return posts.toJSON()
 ```
 
-You can also assign a custom naming strategy to the `SimplePaginator` class constructor to override it globally. The following code must go inside a provider or a [preload file](../fundamentals/adonisrc-file.md#preloads).
+You can also assign a custom naming strategy to the `SimplePaginator` class constructor to override it globally inside a [service provider](https://docs.adonisjs.com/guides/service-providers)
 
 ```ts
 import db from '@adonisjs/lucid/services/db'
@@ -176,7 +172,3 @@ export default class AppProvider {
   }
 }
 ```
-
-## Additional reading
-
-- [Paginator class reference guide](../../reference/database/query-builder.md#pagination)

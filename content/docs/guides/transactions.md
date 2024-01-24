@@ -4,18 +4,14 @@ summary: Reference to SQL transactions and save points with Lucid ORM
 
 # Transactions
 
-Lucid has first-class support for transactions and save points. You can create a new transaction by calling the `Database.transaction` method.
+Lucid has first-class support for transactions and save points. You can create a new transaction by calling the `db.transaction` method.
 
 ```ts
 import db from '@adonisjs/lucid/services/db'
-
-// Transaction created
 const trx = await db.transaction()
 ```
 
 Just like the `db` module. You can also use the `trx` object to create a query builder instance.
-
-:::codegroup
 
 ```ts
 // title: Insert
@@ -26,8 +22,6 @@ await trx.insertQuery().table('users').insert({ username: 'virk' })
 // title: Select
 await trx.query().select('*').from('users')
 ```
-
-:::
 
 Once done executing the query, you must `commit` or `rollback` the transaction. Otherwise, the queries will hang until timeout.
 
@@ -95,38 +89,11 @@ await db.transaction(
 
 Following is the list of available isolation levels.
 
-- **"read uncommitted"**
-- **"read committed"**
-- **"snapshot"**
-- **"repeatable read"**
-- **"serializable"**
-
-## Passing transaction as a reference
-
-The transactions API is not only limited to creating a query builder instance from a transaction object. You can also pass it around to existing query builder instances or models.
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-const trx = await db.transaction()
-
-db
-  .insertQuery({ client: trx }) 👈
-  .table('users')
-  .insert({ username: 'virk' })
-```
-
-Or pass it at a later stage using the `useTransaction` method.
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-const trx = await db.transaction()
-
-db
-  .insertQuery()
-  .table('users')
-  .useTransaction(trx) 👈
-  .insert({ username: 'virk' })
-```
+- `read uncommitted`
+- `read committed`
+- `snapshot`
+- `repeatable read`
+- `serializable`
 
 ## Savepoints
 
@@ -143,6 +110,43 @@ const savepoint = await trx.transaction()
 
 // also rollbacks the savepoint
 await trx.rollback()
+```
+
+## Using transaction with database query builder
+
+The transactions API is not only limited to creating a query builder instance from a transaction object. You can also pass it around to existing query builder instances or models.
+
+```ts
+// title: During inserts
+import db from '@adonisjs/lucid/services/db'
+
+const trx = await db.transaction()
+
+await db
+  // highlight-start
+  .insertQuery({ client: trx })
+  // highlight-end
+  .table('users')
+  .insert({ username: 'virk' })
+
+await trx.commit()
+```
+
+```ts
+// title: During select, update or delete
+import db from '@adonisjs/lucid/services/db'
+
+const trx = await db.transaction()
+
+await db
+  // highlight-start
+  .query({ client: trx })
+  // highlight-end
+  .from('users')
+  .where('id', 1)
+  .update(payload)
+
+await trx.commit()
 ```
 
 ## Using transactions with Lucid models
@@ -177,7 +181,9 @@ import User from '#models/user'
 const trx = await db.transaction()
 
 const users = await User
-  .query({ client: trx }) 👈
+  // highlight-start
+  .query({ client: trx })
+  // highlight-end
   .where('is_active', true)
 ```
 

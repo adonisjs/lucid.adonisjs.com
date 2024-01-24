@@ -1,449 +1,65 @@
----
-summary: Introduction to the Lucid ORM. It ships with an implementation of an Active record pattern, a database query builder, support for migrations, seeders, and model factories.
----
-
 # Introduction
 
-AdonisJS is one of the few Node.js frameworks (if not the only one) with first-class support for SQL databases. Lucid powers the data layer of the framework, and you must install the package separately.
-
-:::codegroup
-
-```sh
-// title: 1. Install
-npm i @adonisjs/lucid
-```
-
-```sh
-// title: 2. Configure
-node ace configure @adonisjs/lucid
-
-# CREATE: config/database.ts
-# UPDATE: .env,.env.example
-# UPDATE: tsconfig.json { types += "@adonisjs/lucid" }
-# UPDATE: .adonisrc.json { commands += "@adonisjs/lucid/build/commands" }
-# UPDATE: .adonisrc.json { providers += "@adonisjs/lucid" }
-```
-
-```ts
-// title: 3. Validate environment variables
-/**
- * Depending upon the database driver you are using, you must validate
- * the environment variables defined.
- *
- * The following is an example for PostgreSQL.
- */
-export default Env.rules({
-  PG_HOST: Env.schema.string({ format: 'host' }),
-  PG_PORT: Env.schema.number(),
-  PG_USER: Env.schema.string(),
-  PG_PASSWORD: Env.schema.string.optional(),
-  PG_DB_NAME: Env.schema.string(),
-})
-```
-
-:::
-
-## Configuration
-
-The configuration for all the database drivers is stored inside the `config/database.ts` file.
-
-```ts
-import env from '#start/env'
-import { defineConfig } from '@adonisjs/lucid'
-
-const dbConfig = defineConfig({
-  connection: 'postgres',
-  connections: {
-    postgres: {
-      client: 'pg',
-      connection: {
-        host: env.get('DB_HOST'),
-        port: env.get('DB_PORT'),
-        user: env.get('DB_USER'),
-        password: env.get('DB_PASSWORD'),
-        database: env.get('DB_DATABASE'),
-      },
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations'],
-      },
-    },
-  },
-})
-
-export default dbConfig
-```
-
-#### connection
-
-The `connection` property defines the default connection to use for making database queries. The value relies on the `DB_CONNECTION` environment.
-
----
-
-#### connections
-
-The `connections` object defines one or more database connections you want to use in your application. You can define multiple connections using the same or the different database driver.
-
----
-
-#### migrations
-
-The `migrations` property configures the settings for the database migrations. It accepts the following options.
-
-<table>
-<thead>
-<tr>
-<th>Option</th>
-<th>Description</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>naturalSort</strong></td>
-<td>Use natural sort to sort the migration files. Most of the editors use natural sort and hence the migrations will run in the same order as you see them listed in your editor.</td>
-</tr>
-<tr>
-<td><strong>paths</strong></td>
-<td>
-  <p>
-    An array of paths to look up for migrations. You can also define a path to an installed package. For example:
-  </p>
-
-```ts
-paths: ['./database/migrations', '@somepackage/migrations-dir']
-```
+Lucid is a SQL query builder, and an Active Record ORM built on top of [Knex](https://knexjs.org/). Lucid strives to leverage SQL to its full potential and offers clean API for many advanced SQL operations.
 
-</td>
-</tr>
-<tr>
-<td><strong>tableName</strong></td>
-<td>The name of the table for storing the migrations state. Defaults to <code>adonis_schema</code>.</td>
-</tr>
-<tr>
-<td><strong>disableRollbacksInProduction</strong></td>
-<td>Disable migration rollback in production. It is recommended that you should never rollback migrations in production.</td>
-</tr>
-<tr>
-<td><strong>disableTransactions</strong></td>
-<td>Set the value to <code>true</code> to not wrap migration statements inside a transaction. By default, Lucid will run each migration file in its own transaction.</td>
-</tr>
-</tbody>
-</table>
-
-#### debug
-
-A boolean to globally enable query debugging. You must read the [debugging guide](./debugging.md) for more information.
-
----
-
-#### seeders
-
-The `seeders` object allows you to define the paths for loading the database seeder files. You can also specify a path to an installed package. For example:
-
-```ts
-{
-  seeders: {
-    paths: ['./database/seeders', '@somepackage/seeders-dir']
-  }
-}
-```
-
-## Usage
-
-The easiest way to make SQL queries is to use the Database query builder. It allows you to construct simple and complex SQL queries using JavaScript methods.
-
-In the following example, we select all the posts from the `posts` table.
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-import router from '@adonisjs/core/services/router'
-
-router.get('posts', async () => {
-  return db.from('posts').select('*')
-})
-```
-
-Let's sort the post by their id and also paginate them.
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-import router from '@adonisjs/core/services/router'
-
-router.get('posts', async ({ request }) => {
-  const limit = 20
-  const page = request.input('page', 1)
-
-  return db
-    .from('posts')
-    .select('*')
-    .orderBy('id', 'desc') // 👈 get latest first
-    .paginate(page, limit) // 👈 paginate using page numbers
-})
-```
-
-You are not only limited to the select queries. You can also use the query builder to perform **updates**, **inserts** and **deletes**.
-
-#### Insert a new row
-
-```ts
-const postId = await db
-  .table('posts')
-  .insert({
-    title: 'Adonis 101',
-    description: "Let's learn AdonisJS",
-  })
-  .returning('id') // For PostgreSQL
-```
-
-#### Update existing row by id
-
-```ts
-const updatedRowsCount = await db.from('posts').where('id', 1).update({ title: 'AdonisJS 101' })
-```
-
-#### Delete existing row by id
-
-```ts
-const deletedRowsCount = await db.from('posts').where('id', 1).delete()
-```
-
-## Read/write replicas
-
-AdonisJS supports **read/write replicas** as a first-class citizen. You can configure one write database server, along with multiple read servers. All read queries are sent to the read servers in **round-robin fashion**, and write queries are sent to the write server.
-
-:::note
-
-Lucid does not perform any data replication for you. So you still have to rely on your database server for that.
-
-:::
-
-Following is the example config for defining read/write connections. We merge the properties defined inside the `connection` object with every node of the read/write connections. So, you can keep the shared `username` and `password` in the connection object.
-
-```ts
-{
-  connections: {
-    mysql: {
-      connection: {
-        user: Env.get('DB_USER'),
-        password: Env.get('DB_PASSWORD'),
-        database: Env.get('DB_DATABASE'),
-      },
-      // highlight-start
-      replicas: {
-        read: {
-          connection: [
-            {
-              host: '192.168.1.1',
-            },
-            {
-              host: '192.168.1.2',
-            },
-          ]
-        },
-        write: {
-          connection: {
-            host: '196.168.1.3',
-          },
-        },
-      },
-      // highlight-end
-    }
-  }
-}
-```
-
-## Connection pooling
-
-[Connection pooling](https://en.wikipedia.org/wiki/Connection_pool) is a standard practice of maintaining minimum and maximum connections with the database server.
-
-The **minimum connections** are maintained for improving the application performance. Since establishing a new connection is an expensive operation, it is always recommended to have a couple of connections ready to execute the database queries.
-
-The **maximum connections** are defined to ensure that your application doesn't overwhelm the database server with too many concurrent connections.
-
-Lucid will queue new queries when the pool is full and waits for the pool to have free resources until the configured timeout. The default timeout is set to **60 seconds** and can be configured using the `pool.acquireTimeoutMillis` property.
-
-```ts
-{
-  mysql: {
-    client: 'mysql2',
-    connection: {},
-    // highlight-start
-    pool: {
-      acquireTimeoutMillis: 60 * 1000,
-    }
-    // highlight-end
-  }
-}
-```
-
-:::tip
-
-Bigger the pool size, the better the performance is a misconception. We recommend you read this [document](https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing) to understand how the smaller pool size can boost the application performance.
-
-:::
-
-You can configure the pool settings for a given connection inside the `config/database.ts` file.
-
-```ts
-{
-  connections: {
-    mysql: {
-      client: 'mysql2',
-      connection: {
-      },
-      // highlight-start
-      pool: {
-        min: 2,
-        max: 20,
-      },
-      // highlight-end
-        },
-  }
-}
-```
-
-## Switching between multiple connections
-
-Using the ' .connection ' method, you can switch between the connections defined inside the `config/database.ts` file using the `.connection` method. It accepts the connection name and returns an instance of the [Query client](../../reference/database/query-client.md)
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-
-db.connection('mysql').from('posts').select('*')
-```
-
-## Closing connections
-
-You can close the opened database connections using the `.close` method. Usually, you should let the connections stay for better performance unless you have a specific reason for closing them.
-
-```ts
-// Close a specific connection
-await db.manager.close('mysql')
-
-// Close all connections
-await db.manager.closeAll()
-```
-
-## Drivers config
-
-Following is the example configuration for all the available drivers. You can use it as a reference and tweak the required parts as necessary.
-
-<details>
-  <summary>SQLite</summary>
-
-```sh
-npm i sqlite3
-```
-
-```ts
-sqlite: {
-  client: 'sqlite',
-  connection: {
-    filename: Application.tmpPath('db.sqlite3'),
-  },
-  migrations: {
-    naturalSort: true,
-  },
-  useNullAsDefault: true,
-  debug: false,
-}
-```
-
-</details>
-
----
-
-<details>
-  <summary>MySQL</summary>
-
-```sh
-npm i mysql2
-```
-
-```ts
-mysql: {
-  client: 'mysql2',
-  connection: {
-    host: Env.get('DB_HOST'),
-    port: Env.get('DB_PORT'),
-    user: Env.get('DB_USER'),
-    password: Env.get('DB_PASSWORD'),
-    database: Env.get('DB_DATABASE'),
-  },
-  migrations: {
-    naturalSort: true,
-  },
-  debug: false,
-}
-```
-
-You can also connect to a MySQL database using the Unix domain socket.
-
-```ts
-mysql: {
-  connection: {
-    socketPath : '/path/to/socket.sock',
-    user: Env.get('MYSQL_USER'),
-    password: Env.get('MYSQL_PASSWORD', ''),
-    database: Env.get('MYSQL_DB_NAME'),
-  }
-}
-```
-
-</details>
-
----
-
-<details>
-  <summary>PostgreSQL</summary>
-
-```sh
-npm i pg
-```
-
-```ts
-pg: {
-  client: 'pg',
-  connection: {
-    host: Env.get('PG_HOST'),
-    port: Env.get('PG_PORT'),
-    user: Env.get('PG_USER'),
-    password: Env.get('PG_PASSWORD', ''),
-    database: Env.get('PG_DB_NAME'),
-  },
-  migrations: {
-    naturalSort: true,
-  },
-  debug: false,
-}
-```
-
-</details>
-
----
-
-<details>
-  <summary>MSSQL</summary>
-
-```sh
-npm i tedious
-```
-
-```ts
-mssql: {
-  client: 'mssql',
-  connection: {
-    server: env.get('DB_HOST'),
-    port: env.get('DB_PORT'),
-    user: env.get('DB_USER'),
-    password: env.get('DB_PASSWORD'),
-    database: env.get('DB_DATABASE'),
-  },
-  migrations: {
-    naturalSort: true,
-  },
-  debug: false,
-}
-```
-
-</details>
+Following are some of the hand-picked Lucid features.
+
+- A fluent query builder built on top of Knex.
+- Support for read-write replicas and multiple connection management.
+- Class-based models that adhere to the active record pattern.
+- Migration system to modify database schema using incremental changesets.
+- Model factories to generate fake data for testing.
+- Database seeders to insert initial/dummy data into the database.
+
+## A fluent query builder
+
+The base layer of Lucid is a fluent query builder you can use to construct SQL queries using a JavaScript API. The query builder uses [Knex](https://knexjs.org/) under the hood, and therefore, it supports many advanced SQL operations like **window functions**, **recursive CTEs**, **JSON operations**, **row-based locks**, and much more.
+
+Knex might not be the trendiest query builder in the Node.js ecosystem. However, it is mature and battle-tested.
+
+See also: [Using query builder](./installation.md#basic-usage)
+
+## Migration system
+
+Inspired by frameworks like Laravel, Rails, and Elixir Ecto, AdonisJS does not infer schema changes from models. Instead, it makes you write the incremental changesets to modify the database schema. Manual migrations might feel like too much typing. However, the flexibility and the control they provide are unmatched.
+
+We have experienced that in real-world applications, a schema change is not only adding new columns. The changes sometimes involve renaming columns, preserving data, creating a new table, and copying data from an old table. All this must be done without locking the tables for a long duration.
+
+Manual migrations ensure that you can express schema changes per your application requirements.
+
+See also: [Creating migrations](../migrations/introduction.md)
+
+## Active record ORM
+
+The ORM layer of AdonisJS uses JavaScript Classes to define data models. Classes can define lifecycle hooks, create custom properties and methods to encapsulate domain logic, and control the model's serialization behavior.
+
+You create one model for every database table inside your application and use the APIs the models offer to interact with it.
+
+See also: [Using models]()
+
+## Model factories and database seeders
+
+Model factories are used to generate/persist model instances with fake data. They are helpful during tests since you can encapsulate the logic of generating dummy data in one place and reuse factories across the tests.
+
+On the other hand, the database seeders are used to seed the database with some initial values. These values can be dummy data you want to use during development. Or, you can use seeders to set up the initial state of your production application with a list of countries, admin users, and so on.
+
+See also: [Model factories]()
+See also: [Database seeders]()
+
+## Lucid is not type-safe
+
+Lucid is not type-safe. Let's discuss why.
+
+Type safety with SQL ORMs is a complex topic since it must be applied on multiple layers, such as query construction and output.
+
+Many query builders and ORMs are only type-safe with the query output (sometimes they also limit the SQL features), and only a few are type-safe with query construction as well. Kysely is one of them.
+
+I have [written a few hundred words](https://github.com/thetutlage/meta/discussions/8) comparing Kysely and Drizzle ORM that might help you properly understand the type safety layers.
+
+If we take Kysely as the gold standard of type-safety, we lose a lot of flexibility with it. Especially, in ways, we extend and use Lucid across the AdonisJS codebase.
+
+In fact, I used it to create an extension for our Auth module and the helpers Lucid models can use. And I failed both times. The [creators of Kysely also confirmed](https://www.answeroverflow.com/m/1179612569774870548) that creating generic abstractions of Kysely is impossible.
+
+This is not to say that Kysely is limiting in the first place. It is limiting how we want to use, i.e., build generic abstractions and integrate them seamlessly with the rest of the framework. Kysely is an excellent tool for direct usage.
+
+With that said, looking at the resources at our disposal and our goals, Lucid will not be as type-safe as Kysely in the near future. However, we might invest some time in making certain parts of the ORM type safe.

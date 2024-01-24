@@ -2,8 +2,6 @@
 
 Lucid models make it very easy to perform CRUD operations and also define lifecycle hooks around each operation.
 
-This guide covers 80% of the use cases. However, do make sure to check the [Model API docs](../../reference/orm/base-model.md) docs for all the available methods.
-
 ## Create
 
 You can create and persist new records to the database by first assigning values to the model instance and then calling the `save` method.
@@ -32,8 +30,6 @@ await user.fill({ username: 'virk', email: 'virk@adonisjs.com' }).save()
 console.log(user.$isPersisted) // true
 ```
 
----
-
 ### create
 
 The `static create` method creates the model instance and persists it to the database in one go.
@@ -48,8 +44,6 @@ const user = await User.create({
 
 console.log(user.$isPersisted) // true
 ```
-
----
 
 ### createMany
 
@@ -85,8 +79,6 @@ const user = await User.all()
 // SQL: SELECT * from "users" ORDER BY "id" DESC;
 ```
 
----
-
 ### find
 
 Find a record using the primary key. The method returns a model instance or null (when no records are found).
@@ -95,8 +87,6 @@ Find a record using the primary key. The method returns a model instance or null
 const user = await User.find(1)
 // SQL: SELECT * from "users" WHERE "id" = 1 LIMIT 1;
 ```
-
----
 
 ### findBy
 
@@ -107,8 +97,6 @@ const user = await User.findBy('email', 'virk@adonisjs.com')
 // SQL: SELECT * from "users" WHERE "email" = 'virk@adonisjs.com' LIMIT 1;
 ```
 
----
-
 ### first
 
 Fetch the first record from the database. Returns `null` when there are no records.
@@ -117,8 +105,6 @@ Fetch the first record from the database. Returns `null` when there are no recor
 const user = await User.first()
 // SQL: SELECT * from "users" LIMIT 1;
 ```
-
----
 
 ### orFail variation
 
@@ -130,9 +116,7 @@ const user = await User.firstOrFail()
 const user = await User.findByOrFail('email', 'virk@adonisjs.com')
 ```
 
-The `orFail` variation will raise an `E_ROW_NOT_FOUND` exception with `404` statusCode. You can [manually handle](../http/exception-handling.md#http-exception-handler) this exception to convert it to a desired response.
-
----
+The `orFail` variation will raise an `E_ROW_NOT_FOUND` exception with `404` statusCode.
 
 ### Using the query builder
 
@@ -140,14 +124,15 @@ The above-mentioned static methods cover the common use cases for querying the d
 
 :::note
 
-The [model query builder](../../reference/orm/query-builder.md) returns an array of model instances and not the plain JavaScript object(s).
+The [ModelQueryBuilder](https://github.com/adonisjs/lucid/blob/develop/src/orm/query_builder/index.ts) returns an array of model instances and not the plain JavaScript object(s).
 
 :::
 
 You can get an instance of a query builder for your model using the `.query` method.
 
 ```ts
-const users = await User.query() // 👈now have access to all query builder methods
+const users = await User
+  .query()
   .where('countryCode', 'IN')
   .orWhereNull('countryCode')
 ```
@@ -155,7 +140,11 @@ const users = await User.query() // 👈now have access to all query builder met
 To fetch a single row, you can make use of the `.first` method. There is also a `firstOrFail` method.
 
 ```ts
-const users = await User.query().where('countryCode', 'IN').orWhereNull('countryCode').first() // 👈 Adds `LIMIT 1` clause
+const users = await User
+  .query()
+  .where('countryCode', 'IN')
+  .orWhereNull('countryCode')
+  .first()
 ```
 
 ## Update
@@ -175,7 +164,7 @@ Also, you can use the `merge` method to define all the attributes at once and th
 await user.merge({ lastLoginAt: DateTime.local() }).save()
 ```
 
-#### Why not use the update query directly?
+### Why not use the update query directly?
 
 Another way to update the records is to perform an update using the query builder manually. For example
 
@@ -223,8 +212,6 @@ const savePayload = { password: 'secret' }
 await User.firstOrCreate(searchPayload, savePayload)
 ```
 
----
-
 ### fetchOrCreateMany
 
 The `fetchOrCreateMany` is similar to the `firstOrCreate` method, but instead, you can create more than one row. The method needs a unique key for finding the duplicate rows and an array of objects to persist (if missing inside the database).
@@ -247,8 +234,6 @@ const usersToCreate = [
 await User.fetchOrCreateMany('email', usersToCreate)
 ```
 
----
-
 ### updateOrCreate
 
 The `updateOrCreate` either creates a new record or updates the existing record. Like the `firstOrCreate` method, you need to define a search payload and the attributes to insert/update.
@@ -261,8 +246,6 @@ const persistancePayload = { password: 'secret' }
 
 await User.updateOrCreate(searchPayload, persistancePayload)
 ```
-
----
 
 ### updateOrCreateMany
 
@@ -285,8 +268,3 @@ const usersToCreate = [
 
 await User.updateOrCreateMany('email', usersToCreate)
 ```
-
-## Additional reading
-
-- Checkout the [Base model reference guide](../../reference/orm/base-model.md) to view all the available methods and properties.
-- Also, read the reference docs for the [model query builder](../../reference/orm/query-builder.md).

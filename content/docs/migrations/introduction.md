@@ -33,12 +33,12 @@ If you will notice, the migration filename is prefixed with some numeric value. 
 
 ### Migration class structure
 
-A migration class always extends the `BaseSchema` class provided by the framework and must implement the `up` and the `down` methods.
+A migration class always extends the [BaseSchema](https://github.com/adonisjs/lucid/blob/develop/src/schema/main.ts) class and must implement the `up` and the `down` methods.
 
 - The `up` method is used to evolve the database schema further. Usually, you will create new tables/indexes or alter existing tables inside this method.
 - The `down` method is used to roll back the actions executed by the `up` method. For example, if the up method creates a table, the down method should drop the same table.
 
-Both the methods have access to the AdonisJS [schema builder](../../reference/database/schema-builder.md) that you can use to construct SQL DDL queries.
+Both the methods have access to the [Schema builder](./schema_builder.md) that you can use to construct SQL DDL queries.
 
 ```ts
 import { BaseSchema } from '@adonisjs/lucid/schema'
@@ -182,7 +182,7 @@ export default class extends BaseSchema {
 
 <div class="doc-cta-wrapper">
 
-[Schema builder reference guide →](../../reference/database/schema-builder.md)
+[Schema builder reference guide →](./schema_builder.md)
 
 </div>
 
@@ -354,7 +354,7 @@ import app from '@adonisjs/core/services/app'
 import router from '@adonisjs/core/services/router'
 import { MigrationRunner } from '@adonisjs/lucid/migration'
 
-Route.get('/', async () => {
+router.get('/', async () => {
   const migrator = new MigrationRunner(Database, Application, {
     direction: 'up',
     dryRun: false,
@@ -367,7 +367,9 @@ Route.get('/', async () => {
 ```
 
 - The `direction = up` means to run the `up` method inside the migration files. You can set the `direction = down` to roll back the migrations.
+
 - Enabling the `dryRun` will not execute the queries but instead collect them inside the `queries` array.
+
 - You can also optionally define the `connectionName` property to execute the migrations against a specific database connection.
 
 ### migratedFiles
@@ -422,51 +424,80 @@ Returns the current `status` of the migrator. It will always be one of the follo
 
 ## Migrations config
 
-The configuration for migrations is stored inside the `config/database.ts` file under the connection config object.
+The `migration` object defined on every database connection is used to configuration the migration system of Lucid. Following is the list of available options.
 
 ```ts
 {
-  mysql: {
-    client: 'mysql2',
-    migrations: {
-      naturalSort: true,
-      disableTransactions: false,
-      paths: ['./database/migrations'],
-      tableName: 'adonis_schema',
-      disableRollbacksInProduction: true,
-    }
+  migrations: {
+    naturalSort: true,
+    paths: ['database/migrations'],
+    disableRollbacksInProduction: true,
+    disableTransactions: false,
+    tableName: 'adonis_schema',
   }
 }
 ```
 
-#### naturalSort
+<dl>
 
-Use **natural sort** to sort the migration files. Most of the editors use natural sort, and hence the migrations will run in the same order as you see them listed in your editor.
+<dt>
 
----
+naturalSort
 
-#### paths
+</dt>
 
-An array of paths to look up for migrations. You can also define a path to an installed package. For example:
+<dd>
 
-```ts
-paths: ['./database/migrations', '@somepackage/migrations-dir']
-```
+Use natural sort to sort the files inside the migrations directory.
 
----
+</dd>
 
-#### tableName
+<dt>
 
-The name of the table for storing the migrations state. Defaults to `adonis_schema`.
+paths
 
----
+</dt>
 
-#### disableRollbacksInProduction
+An array of directories to scan and load migration files. All files ending with `.ts` or `.js` are imported and executed as migration files.
 
-Disable migration rollback in production. It is recommended that you should never roll back migrations in production.
+<dd>
 
----
+</dd>
 
-#### disableTransactions
+<dt>
 
-Set the value to `true` to not wrap migration statements inside a transaction. By default, Lucid will run each migration file in its transaction.
+disableRollbacksInProduction
+
+</dt>
+
+<dd>
+
+A security flag to disable accidental rollbacks in production environment. Rollback actions defined inside a migration file are usually destructive like **dropping a table**, **removing a column**, and so on. Therefore, we recommend disabling rollbacks in production.
+
+</dd>
+
+<dt>
+
+disableTransactions
+
+</dt>
+
+<dd>
+
+Disable use of transactions when executing migration files. By default, we start one transaction for every migration file.
+
+</dd>
+
+<dt>
+
+tableName
+
+</dt>
+
+<dd>
+
+The table name for tracking state of executed migration files. Defaults to `adonis_schema`.
+
+</dd>
+
+</dl>

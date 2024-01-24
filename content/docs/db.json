@@ -6,9 +6,15 @@
     "category": "Guides"
   },
   {
-    "permalink": "query-builder",
-    "title": "Query builder",
-    "contentPath": "./guides/query-builder.md",
+    "permalink": "installation",
+    "title": "Installation and Usage",
+    "contentPath": "./guides/installation.md",
+    "category": "Guides"
+  },
+  {
+    "permalink": "debugging",
+    "title": "Debugging",
+    "contentPath": "./guides/debugging.md",
     "category": "Guides"
   },
   {
@@ -24,63 +30,51 @@
     "category": "Guides"
   },
   {
+    "permalink": "select-query-builder",
+    "title": "Select query builder",
+    "contentPath": "./query_builders/select.md",
+    "category": "Query builders"
+  },
+  {
+    "permalink": "insert-query-builder",
+    "title": "Insert query builder",
+    "contentPath": "./query_builders/insert.md",
+    "category": "Query builders"
+  },
+  {
+    "permalink": "raw-query-builder",
+    "title": "Raw query builder",
+    "contentPath": "./query_builders/raw.md",
+    "category": "Query builders"
+  },
+  {
     "permalink": "migrations",
-    "title": "Schema migrations",
-    "contentPath": "./guides/migrations.md",
-    "category": "Guides"
-  },
-  {
-    "permalink": "seeders",
-    "title": "Database seeders",
-    "contentPath": "./guides/seeders.md",
-    "category": "Guides"
-  },
-  {
-    "permalink": "debugging",
-    "title": "Debugging",
-    "contentPath": "./guides/debugging.md",
-    "category": "Guides"
-  },
-  {
-    "permalink": "orm/introduction",
     "title": "Introduction",
-    "contentPath": "./orm/introduction.md",
-    "category": "ORM"
+    "contentPath": "./migrations/introduction.md",
+    "category": "Migrations"
   },
   {
-    "permalink": "orm/crud-operations",
+    "permalink": "schema-builder",
+    "title": "Schema builder",
+    "contentPath": "./migrations/schema_builder.md",
+    "category": "Migrations"
+  },
+  {
+    "permalink": "table-builder",
+    "title": "Table builder",
+    "contentPath": "./migrations/table_builder.md",
+    "category": "Migrations"
+  },
+  {
+    "permalink": "models",
+    "title": "Introduction",
+    "contentPath": "./models/introduction.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "crud-operations",
     "title": "CRUD operations",
-    "contentPath": "./orm/crud_operations.md",
-    "category": "ORM"
-  },
-  {
-    "permalink": "orm/hooks",
-    "title": "Hooks",
-    "contentPath": "./orm/hooks.md",
-    "category": "ORM"
-  },
-  {
-    "permalink": "orm/query-scopes",
-    "title": "Query scopes",
-    "contentPath": "./orm/query_scopes.md",
-    "category": "ORM"
-  },
-  {
-    "permalink": "orm/serializing-models",
-    "title": "Serializing models",
-    "contentPath": "./orm/serializing_models.md",
-    "category": "ORM"
-  },
-  {
-    "permalink": "orm/relationships",
-    "title": "Relationships",
-    "contentPath": "./orm/relationships.md",
-    "category": "ORM"
-  },
-  {
-    "permalink": "orm/model-factories",
-    "title": "Model factories",
-    "contentPath": "./orm/model-factories.md",
-    "category": "ORM"
+    "contentPath": "./models/crud_operations.md",
+    "category": "Models"
   }
 ]
