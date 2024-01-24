@@ -102,7 +102,7 @@ The `getUrlsForRange` method accepts a range of pages and returns an array of ob
 
 ## Serializing to JSON
 
-You can also serialize the paginator results to JSON by calling the `toJSON` method. It returns the key names in `camelCase` by default. However, you can pass a [naming strategy](../../reference/orm/naming-strategy.md#paginationmetakeys) to override the default convention.
+You can also serialize the paginator results to JSON by calling the `toJSON` method. It returns the key names in `camelCase` by default. However, you can pass a [naming strategy](../models/naming_strategy.md#paginationmetakeys) to override the default convention.
 
 ```ts
 const posts = await db.from('posts').paginate(page, limit)

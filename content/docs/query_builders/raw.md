@@ -1,6 +1,4 @@
----
-summary: Raw query builder complete API reference
----
+# Raw query builder
 
 The raw query builder allows you execute queries from a SQL string. Even though you are directly executing raw SQL strings, you can still keep your queries safe from SQL injection by using placeholders for values.
 
@@ -144,7 +142,7 @@ await db
 ```
 
 ### client
-Reference to the instance of the underlying [database query client](./query-client.md).
+Reference to the instance of the underlying [database query client](https://github.com/adonisjs/lucid/blob/develop/src/query_client/index.ts).
 
 ```ts
 const query = db.rawQuery(sql, bindings)

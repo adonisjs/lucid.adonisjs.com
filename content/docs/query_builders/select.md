@@ -1631,7 +1631,7 @@ results.getUrl(2) // /?page=2&limit=20&sort=top
 Following is the list of properties and methods you may occasionally need when building something on top of the query builder.
 
 ### client
-Reference to the instance of the underlying [database query client](./query-client.md).
+Reference to the instance of the underlying [database query client](https://github.com/adonisjs/lucid/blob/develop/src/query_client/index.ts).
 
 ```ts
 const query = db.query()

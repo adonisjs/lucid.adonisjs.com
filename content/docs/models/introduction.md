@@ -187,7 +187,7 @@ await User.create({ avatarUrl: 'foo.jpg' })
 // insert into "users" ("avatar_url") values (?)
 ```
 
-If you are not using the `snake_case` convention in your database, then you can override the default behavior of Lucid by defining a custom [Naming Strategy](../../reference/orm/naming-strategy.md)
+If you are not using the `snake_case` convention in your database, then you can override the default behavior of Lucid by defining a custom [Naming Strategy](./naming_strategy.md)
 
 You can also define the database column names explicitly within the `@column` decorator. This is usually helpful for bypassing the convention in specific use cases.
 

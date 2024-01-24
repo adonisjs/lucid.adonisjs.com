@@ -9,13 +9,15 @@ Query scopes are the reusable function to apply to a query builder instance to m
 The methods are defined as static properties on the model class and receive the current query as the first argument. For example:
 
 ```ts
-// title: app/Models/Post.ts
+// title: app/models/post.ts
 import { DateTime } from 'luxon'
 
 import {
-  BaseModel,
+  // highlight-start
+  scope,
+  // highlight-end
   column,
-  scope, // 👈 import scope method
+  BaseModel,
 } from '@adonisjs/lucid/orm'
 
 export default class Post extends BaseModel {
@@ -62,7 +64,7 @@ Project.query().withScopes((scopes) => scopes.visibleTo(auth.user))
 
 ## Calling scopes within the scopes
 
-Since the scope method receives an instance of the [Model query builder](../../reference/database/orm/query-builder.md), you can also reference other model scopes within the scope callback. For example:
+Since the scope method receives an instance of the [Model query builder](./query_builder.md), you can also reference other model scopes within the scope callback. For example:
 
 ```ts
 import { scope, column, BaseModel } from '@adonisjs/lucid/orm'
@@ -81,7 +83,9 @@ export default class Post extends BaseModel {
 }
 ```
 
-#### Noticed the `Builder` type we created above?
+:::tip
+
+**Noticed the `Builder` type we created above?**
 
 The `scope` method is not aware of the Model it is used inside (a TypeScript limitation) and hence it cannot infer the Query builder type for the model as well. Therefore, we need to type hint the `builder` property as follow:
 
@@ -97,3 +101,5 @@ public static firstScope = scope(
   }
 )
 ```
+
+:::

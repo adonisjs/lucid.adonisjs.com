@@ -1,7 +1,3 @@
----
-summary: An in-depth reference to relationships in Lucid ORM data models
----
-
 # Relationships
 
 The Lucid data models have out of box support for working with relationships. You have to define the relationships on your models, and Lucid will do all the heavy lifting of constructing the underlying SQL queries.
@@ -63,7 +59,7 @@ export default class Profiles extends BaseSchema {
 
 Once you have created the tables with the required columns, you will also have to define the relationship on the Lucid model.
 
-The has one relationship is defined using the [@hasOne](../../reference/orm/decorators.md#hasone) decorator on a model property.
+The has one relationship is defined using the [@hasOne](https://github.com/adonisjs/lucid/blob/develop/src/orm/decorators/index.ts#L80) decorator on a model property.
 
 ```ts
 import Profile from '#models/profile'
@@ -80,7 +76,7 @@ export default class User extends BaseModel {
 
 ### Custom relationship keys
 
-By default, the `foreignKey` is the **camelCase representation of the parent model name and its primary key**. However, you can also define a custom foreign key.
+By default, the `foreignKey` is the **snake_case representation of the parent model name and its primary key**. However, you can also define a custom foreign key.
 
 ```ts
 @hasOne(() => Profile, {
@@ -90,7 +86,7 @@ profile: HasOne<typeof Profile>
 ```
 
 :::note
-Remember, if you intend to use camelCase for your foreign key definition, keep in mind that the default [naming strategy](../../reference/orm/naming-strategy.md) will automatically convert it to snake_case.
+Remember, if you intend to use camelCase for your foreign key definition, keep in mind that the default [naming strategy](./naming_strategy.md) will automatically convert it to snake_case.
 :::
 
 The local key is always the **primary key of the parent model** but can also be defined explicitly.
@@ -159,7 +155,7 @@ export default class Posts extends BaseSchema {
 
 Once you have created the tables with the required columns, you will also have to define the relationship on the Lucid model.
 
-The has many relationship is defined using the [@hasMany](../../reference/orm/decorators.md#hasmany) decorator on a model property.
+The has many relationship is defined using the [@hasMany](https://github.com/adonisjs/lucid/blob/develop/src/orm/decorators/index.ts#L91) decorator on a model property.
 
 ```ts
 import Post from '#models/post'
@@ -186,7 +182,7 @@ posts: HasMany<typeof Post>
 ```
 
 :::note
-Remember, if you intend to use camelCase for your foreign key definition, keep in mind that the default [naming strategy](../../reference/orm/naming-strategy.md) will automatically convert it to snake_case.
+Remember, if you intend to use camelCase for your foreign key definition, keep in mind that the default [naming strategy](./naming_strategy.md) will automatically convert it to snake_case.
 :::
 
 The local key is always the **primary key of the parent model** but can also be defined explicitly.
@@ -204,7 +200,7 @@ BelongsTo is the inverse of the `hasOne` and the `hasMany` relationship. So, for
 
 You can leverage the same table structure and the same foreign key conventions to define a belongsTo relationship.
 
-The belongs to relationship is defined using the [@belongsTo](../../reference/orm/decorators.md#belongsto) decorator on a model property.
+The belongs to relationship is defined using the [@belongsTo](https://github.com/adonisjs/lucid/blob/develop/src/orm/decorators/index.ts#L64) decorator on a model property.
 
 ```ts
 import User from '#models/user'
@@ -303,7 +299,7 @@ export default class SkillUsers extends BaseSchema {
 
 Once you have created the tables with the required columns, you will also have to define the relationship on the Lucid model.
 
-The many to many relationship is defined using the [@manyToMany](../../reference/orm/decorators.md#manytomany) decorator on a model property.
+The many to many relationship is defined using the [@manyToMany](https://github.com/adonisjs/lucid/blob/develop/src/orm/decorators/index.ts#L102) decorator on a model property.
 
 :::note
 
@@ -332,8 +328,11 @@ export default class User extends BaseModel {
 A manyToMany relation relies on many different keys to properly set up the relationship. All of these keys are computed using standard conventions. However, you are free to override them.
 
 - `localKey` is the primary key of the parent model (i.e., User)
+
 - `relatedKey` is the primary key of the related model (i.e., Skill)
+
 - `pivotForeignKey` is the foreign key for establishing the relationship with the parent model. The default value is the `snake_case` version of the parent model name and its primary key.
+
 - `pivotRelatedForeignKey` is the foreign key for establishing the relationship with the related model. The default value is the `snake_case` version of the related model name and its primary key.
 
 ```ts
@@ -347,7 +346,7 @@ skills: ManyToMany<typeof Skill>
 ```
 
 :::note
-Remember, if you intend to use camelCase for your foreign key definition, keep in mind that the default [naming strategy](../../reference/orm/naming-strategy.md) will automatically convert it to snake_case.
+Remember, if you intend to use camelCase for your foreign key definition, keep in mind that the default [naming strategy](./naming_strategy.md) will automatically convert it to snake_case.
 :::
 
 ### Custom pivot table
@@ -490,7 +489,7 @@ export default class Posts extends BaseSchema {
 
 Once you have created the tables with the required columns, you will also have to define the relationship on the Lucid model.
 
-The has many through relationship is defined using the [@hasManyThrough](../../reference/orm/decorators.md#hasmanythrough) decorator on a model property.
+The has many through relationship is defined using the [@hasManyThrough](https://github.com/adonisjs/lucid/blob/develop/src/orm/decorators/index.ts#L118) decorator on a model property.
 
 ```ts
 import Post from '#models/post'
@@ -631,10 +630,6 @@ const posts = await Post.query().preload('comments', (query) => {
 
 ## Relationship query builder
 
-:::note
-Make sure to read the [relationship API docs](../../reference/orm/relations/has-one.md) to view all the available methods/properties available on the query builder.
-:::
-
 You can also access the query builder for a relationship using the `related` method. The relationship queries are always scoped to a given parent model instance.
 
 Lucid will automatically add the `where` clause for limiting the posts to the given user in the following example.
@@ -650,7 +645,7 @@ The `query` method returns a standard query builder instance, and you can chain 
 const posts = await user.related('posts').query().where('isPublished', true).paginate(1)
 ```
 
-You can also use the relationship query builder to `update` and `delete` related rows. However, doing so [will not execute](./crud.md#why-not-use-the-update-query-directly) any of the model hooks.
+You can also use the relationship query builder to `update` and `delete` related rows. However, doing so [will not execute](./crud_operations.md#why-not-use-the-update-query-directly) any of the model hooks.
 
 ## Filter by relationships
 
@@ -804,7 +799,7 @@ export default class User extends BaseModel {
 
 ## Create relationships
 
-You can create relationships between two models using the relationships persistence API. Make sure to also check out the [API docs](../../reference/orm/relations/has-one.md#query-client) to view all the available methods.
+You can create relationships between two models using the relationships persistence API.
 
 ### create
 

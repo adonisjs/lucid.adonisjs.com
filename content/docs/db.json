@@ -30,6 +30,12 @@
     "category": "Guides"
   },
   {
+    "permalink": "seeders",
+    "title": "Database seeders",
+    "contentPath": "./guides/seeders.md",
+    "category": "Guides"
+  },
+  {
     "permalink": "select-query-builder",
     "title": "Select query builder",
     "contentPath": "./query_builders/select.md",
@@ -75,6 +81,48 @@
     "permalink": "crud-operations",
     "title": "CRUD operations",
     "contentPath": "./models/crud_operations.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "model-hooks",
+    "title": "Hooks",
+    "contentPath": "./models/hooks.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "model-query-builder",
+    "title": "Query builder",
+    "contentPath": "./models/query_builder.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "model-naming-strategy",
+    "title": "Naming strategy",
+    "contentPath": "./models/naming_strategy.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "model-query-scopes",
+    "title": "Query scopes",
+    "contentPath": "./models/query_scopes.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "serializing-models",
+    "title": "Serializing models",
+    "contentPath": "./models/serializing_models.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "relationships",
+    "title": "Relationships",
+    "contentPath": "./models/relationships.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "model-factories",
+    "title": "Model factories",
+    "contentPath": "./models/model_factories.md",
     "category": "Models"
   }
 ]

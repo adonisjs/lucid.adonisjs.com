@@ -1,8 +1,3 @@
----
-summary: Using the data model hooks to perform actions on specific events.
-tocDepth: 3
----
-
 # Hooks
 
 Hooks are the **actions that you can perform against a model instance** during a pre-defined life cycle event. Using hooks, you can encapsulate specific actions within your models vs. writing them everywhere inside your codebase.
@@ -10,7 +5,7 @@ Hooks are the **actions that you can perform against a model instance** during a
 A great example of hooks is password hashing. You can define a hook that runs before the `save` call and converts the plain text password to a hash.
 
 ```ts
-// title: app/Models/User.ts
+// title: app/models/user.ts
 // highlight-start
 import hash from '@adonisjs/core/services/hash'
 // highlight-end
@@ -30,7 +25,7 @@ export default class User extends BaseModel {
   @beforeSave()
   static async hashPassword(user: User) {
     if (user.$dirty.password) {
-      user.password = await Hash.make(user.password)
+      user.password = await hash.make(user.password)
     }
   }
   // highlight-end
@@ -41,9 +36,9 @@ export default class User extends BaseModel {
 - Hooks can be async. So you can use the `await` keyword inside them.
 - Hooks are always defined as static functions and receive the model's instance as the first argument.
 
----
+:::tip
 
-#### Understanding the `$dirty` property
+**Understanding the `$dirty` property**
 
 The `beforeSave` hook is called every time a new user is **created** or **updated** using the model instance.
 
@@ -51,9 +46,11 @@ During the update, you may have updated other properties but NOT the user passwo
 
 The `$dirty` object only contains the changed values. So, you can check if the password was changed and then hash the new value.
 
+:::
+
 ## Available hooks
 
-Following is the list of all the available hooks. Make sure to read the [decorators API docs](../../reference/orm/decorators.md) as well.
+Following is the list of all the available hooks.
 
 | Hook             | Description                                                                                                                 |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -72,11 +69,73 @@ Following is the list of all the available hooks. Make sure to read the [decorat
 | `beforeFind`     | Invoked **before the find** query. Receives the query builder instance as the only argument.                                |
 | `afterFind`      | Invoked **after the find** query. Receives the model instance as the only argument.                                         |
 
-**All hooks receive the model instance as the first argument, except the ones documented below.**
+### beforeSave
+The `beforeSave` decorator registers a given function as a before hook invoked before the **insert** and the **update** query.
+
+```ts
+import { BaseModel, beforeSave } from '@adonisjs/lucid/orm'
+
+class User extends BaseModel {
+  @beforeSave()
+  static async hashPassword(user: User) {
+    if (user.$dirty.password) {
+      user.password = await Hash.make(user.password)
+    }
+  }
+}
+```
+
+### beforeCreate
+The `beforeCreate` decorator registers the function to be invoked just before the insert operation.
+
+```ts
+import { BaseModel, beforeCreate } from '@adonisjs/lucid/orm'
+
+class User extends BaseModel {
+  @beforeCreate()
+  static assignAvatar(user: User) {
+    user.avatarUrl = getRandomAvatar()
+  }
+}
+```
+
+### beforeUpdate
+The `beforeUpdate` decorator registers the function to be invoked just before the update operation.
+
+```ts
+import { BaseModel, beforeUpdate } from '@adonisjs/lucid/orm'
+
+class User extends BaseModel {
+  @beforeUpdate()
+  static async assignAvatar(user: User) {
+    user.avatarUrl = getRandomAvatar()
+  }
+}
+```
+
+### beforeDelete
+The `beforeDelete` decorator registers the function to be invoked just before the delete operation.
+
+```ts
+import { BaseModel, beforeDelete } from '@adonisjs/lucid/orm'
+
+class Post extends BaseModel {
+  @beforeDelete()
+  static async removeFromCache(post: Post) {
+    await Cache.remove(`post-${post.id}`)
+  }
+}
+```
 
 ### beforeFind
 
 The `beforeFind` hook is invoked just before the query is executed to find a single row. This hook receives the query builder instance, and you can attach your constraints to it.
+
+Find operations are one's that intentionally selects a single database row. For example:
+
+- `Model.find()`
+- `Model.findBy()`
+- `Model.first()`
 
 ```ts
 import { BaseModel, beforeFind } from '@adonisjs/lucid/orm'
@@ -90,8 +149,6 @@ export default class User extends BaseModel {
 }
 ```
 
----
-
 ### afterFind
 
 The `afterFind` event receives the model instance.
@@ -104,8 +161,6 @@ export default class User extends BaseModel {
   static afterFindHook(user: User) {}
 }
 ```
-
----
 
 ### beforeFetch
 
@@ -123,8 +178,6 @@ export default class User extends BaseModel {
 }
 ```
 
----
-
 ### afterFetch
 
 The `afterFetch` hook receives an array of model instances.
@@ -137,8 +190,6 @@ export default class User extends BaseModel {
   static afterFetchHook(users: User[]) {}
 }
 ```
-
----
 
 ### beforePaginate
 
@@ -162,11 +213,9 @@ export default class User extends BaseModel {
 }
 ```
 
----
-
 ### afterPaginate
 
-The `afterPaginate` hook receives an instance of the [SimplePaginator](../../reference/database/query-builder.md#pagination) class. The `paginate` method fires both the `afterFetch` and the `afterPaginate` hooks.
+The `afterPaginate` hook receives an instance of the [SimplePaginator](https://github.com/adonisjs/lucid/blob/efed38908680cca3b288d9b2a123586fab155b1d/src/Database/Paginator/SimplePaginator.ts#L20) class. The `paginate` method fires both the `afterFetch` and the `afterPaginate` hooks.
 
 ```ts
 import { BaseModel, beforePaginate } from '@adonisjs/lucid/orm'

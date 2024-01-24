@@ -35,7 +35,7 @@ The ORM layer of AdonisJS uses JavaScript Classes to define data models. Classes
 
 You create one model for every database table inside your application and use the APIs the models offer to interact with it.
 
-See also: [Using models]()
+See also: [Using models](../models/introduction.md)
 
 ## Model factories and database seeders
 
@@ -43,8 +43,8 @@ Model factories are used to generate/persist model instances with fake data. The
 
 On the other hand, the database seeders are used to seed the database with some initial values. These values can be dummy data you want to use during development. Or, you can use seeders to set up the initial state of your production application with a list of countries, admin users, and so on.
 
-See also: [Model factories]()
-See also: [Database seeders]()
+See also: [Model factories](../models/model_factories.md)
+See also: [Database seeders](./seeders.md)
 
 ## Lucid is not type-safe
 

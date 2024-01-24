@@ -4,13 +4,16 @@ summary: Learn how to serialize model instances to plain JavaScript objects.
 
 # Serializing models
 
-If you create an API server, you want to convert the model instances to plain JSON objects before sending them to the client in response.
+If you create an API server, you may want to convert the model instances to plain JSON objects before sending them to the client in response.
 
 The process of transforming class instances to plain JSON objects is known as serialization. During the serialization process, you may also want to:
 
 - Convert the `camelCase` model property names to `snake_case`.
+
 - Hide/remove some of the properties from the API responses. For example: Removing the `password` property from the User model.
+
 - Convert/mutate values. For example: Converting the timestamps to an ISO string.
+
 - Add additional computed properties. For example: Compute the `fullName` from the user's first and the last name.
 
 You can perform all these transformations within your models without creating any separate transformers or resource classes.
@@ -41,7 +44,7 @@ const postsJSON = posts.map((post) => post.serialize())
 
 When working with paginated results, you can serialize the models by calling the `.serialize` method on the paginator instance.
 
-The `paginator.serialize` method returns an object with `meta` and `data` properties. The `meta` is the [pagination metadata](../database/pagination.md#serializing-to-json) and `data` is an array of serialized models.
+The `paginator.serialize` method returns an object with `meta` and `data` properties. The `meta` is the [pagination metadata](../guides/pagination.md#serializing-to-json) and `data` is an array of serialized models.
 
 ```ts
 const posts = await Post.query().paginate(1)
@@ -85,7 +88,7 @@ export default class Post extends BaseModel {
 You can rename the serialized property names by using the `serializeAs` option. You will still access the property by its actual name on the model, but the serialized output will use the `serializeAs` name. For example:
 
 :::note
-Make use of [Model naming strategy](../../reference/orm/naming-strategy.md#serializedname) if you want to overwrite the naming convention for all serialized properties.
+Make use of [Model naming strategy](./naming_strategy.md) if you want to overwrite the naming convention for all serialized properties.
 :::
 
 ```ts

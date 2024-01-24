@@ -1,3 +1,5 @@
+# Insert query builder
+
 The insert query builder allows you to insert new rows into the database. You must use the [select query builder](./select.md) for **selecting**, **deleting** or **updating** rows.
 
 You can get access to the insert query builder as shown in the following example:
@@ -185,7 +187,7 @@ values
 Following is the list of properties and methods you may occasionally need when building something on top of the query builder.
 
 ### client
-Reference to the instance of the underlying [database query client](./query-client.md).
+Reference to the instance of the underlying [database query client](https://github.com/adonisjs/lucid/blob/develop/src/query_client/index.ts).
 
 ```ts
 const query = db.insertQuery()
