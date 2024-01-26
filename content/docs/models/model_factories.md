@@ -26,7 +26,7 @@ Unlike seeders or models, the factories are declarative in nature as shown in th
 ```ts
 // title: database/factories/user.ts
 import User from '#models/user'
-import { Factory } from '@adonisjs/lucid/factories'
+import Factory from '@adonisjs/lucid/factories'
 
 export const UserFactory = Factory.define(User, ({ faker }) => {
   return {
