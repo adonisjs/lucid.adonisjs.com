@@ -25,6 +25,7 @@ The following example uses a Lucid model to create multiple users. However, you 
 // title: database/seeders/user.ts
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import User from '#models/user'
+import { UserFactory } from '#database/factories/user'
 
 export default class UserSeeder extends BaseSeeder {
   async run() {
@@ -37,7 +38,10 @@ export default class UserSeeder extends BaseSeeder {
         email: 'romain@adonisjs.com',
         password: 'supersecret',
       },
-    ])
+    ]),
+    //or with factory
+    await UserFactory.create()
+
   }
 }
 ```
