@@ -30,7 +30,7 @@ import Factory from '@adonisjs/lucid/factories'
 
 export const UserFactory = Factory.define(User, ({ faker }) => {
   return {
-    username: faker.internet.userName(),
+    fullName: faker.internet.displayName(),
     email: faker.internet.email(),
     password: faker.internet.password(),
   }
