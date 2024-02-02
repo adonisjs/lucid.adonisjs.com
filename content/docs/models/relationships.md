@@ -165,7 +165,7 @@ import { column, BaseModel, hasMany } from '@adonisjs/lucid/orm'
 export default class User extends BaseModel {
   // highlight-start
   @hasMany(() => Post)
-  posts: HasMany<typeof Post>
+ declare posts: HasMany<typeof Post>
   // highlight-end
 }
 ```
@@ -314,11 +314,11 @@ import { column, BaseModel, manyToMany } from '@adonisjs/lucid/orm'
 
 export default class User extends BaseModel {
   @column({ isPrimary: true })
-  id: number
+  declare id: number
 
   // highlight-start
   @manyToMany(() => Skill)
-  skills: ManyToMany<typeof Skill>
+  declare skills: ManyToMany<typeof Skill>
   // highlight-end
 }
 ```
@@ -499,11 +499,11 @@ import { column, BaseModel, hasManyThrough } from '@adonisjs/lucid/orm'
 
 export default class Country extends BaseModel {
   @column({ isPrimary: true })
-  id: number
+  declare id: number
 
   // highlight-start
   @hasManyThrough([() => Post, () => User])
-  posts: HasManyThrough<typeof Post>
+  declare posts: HasManyThrough<typeof Post>
   // highlight-end
 }
 ```
@@ -784,7 +784,7 @@ import { column, BaseModel, hasMany } from '@adonisjs/lucid/orm'
 
 export default class User extends BaseModel {
   @hasMany(() => UserEmail)
-  emails: HasMany<typeof UserEmail>
+  declare emails: HasMany<typeof UserEmail>
 
   @hasMany(() => UserEmail, {
     // highlight-start
@@ -793,7 +793,7 @@ export default class User extends BaseModel {
     },
     // highlight-start
   })
-  activeEmails: HasMany<typeof UserEmail>
+  declare activeEmails: HasMany<typeof UserEmail>
 }
 ```
 
