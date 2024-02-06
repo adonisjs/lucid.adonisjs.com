@@ -111,7 +111,7 @@ emitter.on('db:query', (query) => {
   if (app.inProduction) {
     logger.debug(query)
   } else {
-    Database.prettyPrint(query)
+    db.prettyPrint(query)
   }
 })
 ```
