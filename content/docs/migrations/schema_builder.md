@@ -8,7 +8,7 @@ You can access the schema builder instance using the `this.schema` property in y
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 class UserSchema extends BaseSchema {
-  up() {
+  async up() {
     console.log(this.schema)
   }
 }
@@ -19,7 +19,7 @@ Creates a new database table. The method accepts the table name and a callback t
 
 ```ts
 class UserSchema extends BaseSchema {
-  up() {
+  async up() {
     // highlight-start
     this.schema.createTable('users', (table) => {
       table.increments()
@@ -37,7 +37,7 @@ Create the PostgreSQL schema. It accepts the schema name.
 
 ```ts
 class FoundationSchema extends BaseSchema {
-  up() {
+  async up() {
     // highlight-start
     this.schema.createSchema('public')
     // highlight-end
@@ -50,7 +50,7 @@ Select a SQL table to alter its columns. The method accepts the table name and a
 
 ```ts
 class UserSchema extends BaseSchema {
-  up() {
+  async up() {
     // highlight-start
     this.schema.alterTable('user', (table) => {
       /**
@@ -74,7 +74,7 @@ Rename a table. The method accepts the existing table name as the first argument
 
 ```ts
 class UserSchema extends BaseSchema {
-  up() {
+  async up() {
     // highlight-start
     this.schema.renameTable('user', 'app_users')
     // highlight-end
@@ -87,7 +87,7 @@ Drop an existing SQL table. The method accepts the table name as the only argume
 
 ```ts
 class UserSchema extends BaseSchema {
-  down() {
+  async down() {
     // highlight-start
     this.schema.dropTable('users')
     // highlight-end
@@ -100,7 +100,7 @@ Similar to the `dropTable` method, but conditionally drop the table if it exists
 
 ```ts
 class UserSchema extends BaseSchema {
-  down() {
+  async down() {
     // highlight-start
     this.schema.dropTableIfExists('users')
     // highlight-end
@@ -113,7 +113,7 @@ Drop an existing PostgreSQL schema. The method accepts the schema name as the on
 
 ```ts
 class FoundationSchema extends BaseSchema {
-  down() {
+  async down() {
     // highlight-start
     this.schema.dropSchema('public')
     // highlight-end
@@ -126,7 +126,7 @@ Similar to the `dropSchema` method, but conditionally drop the schema if it exis
 
 ```ts
 class FoundationSchema extends BaseSchema {
-  down() {
+  async down() {
     // highlight-start
     this.schema.dropSchemaIfExists('public')
     // highlight-end
@@ -139,7 +139,7 @@ Run a SQL query from the raw string. Unlike the [raw query builder](../query_bui
 
 ```ts
 class UserSchema extends BaseSchema {
-  up() {
+  async up() {
     // highlight-start
     this.schema
       .raw("SET sql_mode='TRADITIONAL'")
@@ -158,7 +158,7 @@ Specify the schema to select when running the SQL DDL statements. The method acc
 
 ```ts
 class UserSchema extends BaseSchema {
-  up() {
+  async up() {
     // highlight-start
     this.schema
       .withSchema('public')
