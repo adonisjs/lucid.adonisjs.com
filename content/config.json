@@ -12,6 +12,9 @@
   "sponsors_sources": [
   ],
   "search": {
+    "appId": "LAX13WQLUB",
+    "indexName": "lucid-adonisjs",
+    "apiKey": "2c93ff220c2007473bcf88e4e730199e"
   },
   "fileEditBaseUrl": "https://github.com/adonisjs/lucid.adonisjs.com/blob/main",
   "copyright": "AdonisJS Lucid"
