@@ -54,7 +54,7 @@ node ace db:seed
 You can define the `--files` flag multiple times to run more than one file. Also, you will have to define the complete path to the seeder file. **We opted for the complete path because your terminal shell can autocomplete the path for you.**
 
 ```sh
-node ace db:seed --files "./database/seeders/user.ts"
+node ace db:seed --files "./database/seeders/user_seeder.ts"
 ```
 
 You can also select the seeder files interactively by running the `db:seed` command in interactive mode.
