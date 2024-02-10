@@ -14,7 +14,7 @@ The seeders are stored inside the `database/seeders` directory. You can create a
 ```sh
 node ace make:seeder User
 
-# CREATE: database/seeders/User.ts
+# CREATE: database/seeders/user_seeder.ts
 ```
 
 Every seeder file must extend the `BaseSeeder` class and implement the `run` method.
@@ -54,7 +54,7 @@ node ace db:seed
 You can define the `--files` flag multiple times to run more than one file. Also, you will have to define the complete path to the seeder file. **We opted for the complete path because your terminal shell can autocomplete the path for you.**
 
 ```sh
-node ace db:seed --files "./database/seeders/User.ts"
+node ace db:seed --files "./database/seeders/user.ts"
 ```
 
 You can also select the seeder files interactively by running the `db:seed` command in interactive mode.
@@ -181,16 +181,16 @@ Create the main seeder file by running the following Ace command.
 ```sh
 node ace make:seeder MainSeeder/index
 
-# CREATE: database/seeders/MainSeeder/Index.ts
+# CREATE: database/seeders/main/index_seeder.ts
 ```
 
 ---
 
 #### Step 2. Register its path inside the `seeders` config
 
-Open the `config/database.ts` file and register the path to the **Main seeder** directory inside the connection config.
+Open the `config/database.ts` file and register the path to the **main** directory inside the connection config.
 
-After the following change, the `db:seed` command will scan the `./database/seeders/MainSeeder` directory.
+After the following change, the `db:seed` command will scan the `./database/seeders/main` directory.
 
 ```ts
 {
@@ -198,7 +198,7 @@ After the following change, the `db:seed` command will scan the `./database/seed
     client: 'mysql2',
     // ... rest of the config
     seeders: {
-      paths: ['./database/seeders/MainSeeder']
+      paths: ['./database/seeders/main']
     }
   }
 }
@@ -208,7 +208,7 @@ After the following change, the `db:seed` command will scan the `./database/seed
 
 #### Step 3. Import other seeders inside the main seeder
 
-Now, you can manually import all the seeders inside the **Main seeder** file and execute them in any order you want.
+Now, you can manually import all the seeders inside the **index_seeder** file and execute them in any order you want.
 
 :::note
 Following is an example implementation of the Main seeder. Feel free to customize it as per your requirements.
@@ -216,17 +216,18 @@ Following is an example implementation of the Main seeder. Feel free to customiz
 
 ```ts
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
-import Application from '@ioc:Adonis/Core/Application'
+import app from '@adonisjs/core/services/app'
 
 export default class IndexSeeder extends BaseSeeder {
-  private async runSeeder(Seeder: { default: typeof BaseSeeder }) {
+  private async seed(Seeder: { default: typeof BaseSeeder }) {
     /**
      * Do not run when not in a environment specified in Seeder
      */
     if (
-      (!Seeder.default.environment.includes('development') && Application.inDev) ||
-      (!Seeder.default.environment.includes('testing') && Application.inTest) ||
-      (!Seeder.default.environment.includes('production') && Application.inProduction)
+      !Seeder.default.environment ||
+      (!Seeder.default.environment.includes('development') && app.inDev) ||
+      (!Seeder.default.environment.includes('testing') && app.inTest) ||
+      (!Seeder.default.environment.includes('production') && app.inProduction)
     ) {
       return
     }
@@ -235,9 +236,9 @@ export default class IndexSeeder extends BaseSeeder {
   }
 
   async run() {
-    await this.runSeeder(await import('../Category'))
-    await this.runSeeder(await import('../User'))
-    await this.runSeeder(await import('../Post'))
+    await this.runSeeder(await import('#database/seeders/category'))
+    await this.runSeeder(await import('#database/seeders/user'))
+    await this.runSeeder(await import('#database/seeders/post'))
   }
 }
 ```
@@ -249,5 +250,5 @@ export default class IndexSeeder extends BaseSeeder {
 ```sh
 node ace db:seed
 
-# completed database/seeders/MainSeeder/Index
+# completed database/seeders/main/index_seeder
 ```
