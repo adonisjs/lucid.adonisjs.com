@@ -179,7 +179,7 @@ If you want certain seeders to run before the other seeders, then either you can
 Create the main seeder file by running the following Ace command.
 
 ```sh
-node ace make:seeder MainSeeder/index
+node ace make:seeder main/index
 
 # CREATE: database/seeders/main/index_seeder.ts
 ```
