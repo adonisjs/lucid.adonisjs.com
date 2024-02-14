@@ -454,7 +454,7 @@ this.schema.alterTable('posts', (table) => {
 
 Adds a foreign key constraint to a table for existing columns. Make sure the table already exists when using the `foreign` method.
 
-- The methods one or more column names as the first argument.
+- The methods accepts one or more column names as the first argument.
 - You can define a custom `foreignKeyName` as the second argument. If not specified, the column names are used to generate it.
 
 ```ts
