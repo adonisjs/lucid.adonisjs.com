@@ -6,7 +6,7 @@ You get access to the table builder instance by calling one of the following sch
 
 ```ts
 class UserSchema extends BaseSchema {
-  up() {
+  async up() {
     // highlight-start
     this.schema.createTable('users', (table) => {
       console.log(table) // 👈 Table builder
@@ -83,7 +83,7 @@ this.schema.createTable('users', (table) => {
 Adds a `bigint` column in MYSQL and PostgreSQL. For all other database drivers, it defaults to a normal integer.
 
 :::note
-BigInt column values are returned as a string in query results. 
+BigInt column values are returned as a string in query results.
 :::
 
 ```ts
@@ -336,11 +336,11 @@ Make sure also to create the UUID extension for PostgreSQL. You can also do it i
 import BaseSchema from '@ioc:Adonis/Lucid/Schema'
 
 export default class SetupExtensions extends BaseSchema {
-  up() {
+  async up() {
     this.schema.raw('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
   }
 
-  down() {
+  async down() {
     this.schema.raw('DROP EXTENSION IF EXISTS "uuid-ossp"')
   }
 }
@@ -523,7 +523,7 @@ this.schema.alterTable('posts', (table) => {
 
 ## Chainable methods
 
-Following is the list of methods you can chain on the schema building methods as modifiers to the column. 
+Following is the list of methods you can chain on the schema building methods as modifiers to the column.
 
 ### alter
 
@@ -585,7 +585,7 @@ this.schema.table('users', (table) => {
 ```
 
 ## references
-Define the column that the current column references as a foreign key. 
+Define the column that the current column references as a foreign key.
 
 ```ts
 this.schema.table('posts', (table) => {
@@ -637,14 +637,14 @@ this.schema.table('posts', (table) => {
 ```
 
 ## defaultTo
-Define the default value for the column to be used during the insert. 
+Define the default value for the column to be used during the insert.
 
 In MSSQL a constraintName option may be passed to ensure a specific constraint name:
 
 ```ts
 this.schema.table('posts', (table) => {
   table.boolean('is_published').defaultTo(false)
-  
+
   // For MSSQL
   table
     .boolean('is_published')
@@ -653,7 +653,7 @@ this.schema.table('posts', (table) => {
 ```
 
 ## unsigned
-Mark the current column as unsigned. 
+Mark the current column as unsigned.
 
 ```ts
 this.schema.table('posts', (table) => {
@@ -669,7 +669,7 @@ this.schema.table('posts', (table) => {
 Mark the current column as NOT nullable.
 
 :::note
-Consider using [dropNullable](#dropnullable) method when altering the column. 
+Consider using [dropNullable](#dropnullable) method when altering the column.
 :::
 
 ```ts
@@ -682,7 +682,7 @@ this.schema.table('users', (table) => {
 Mark the current column as nullable.
 
 :::note
-Consider using [setNullable](#setnullable) method when altering the column. 
+Consider using [setNullable](#setnullable) method when altering the column.
 :::
 
 ```ts

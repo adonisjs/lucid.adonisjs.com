@@ -192,7 +192,7 @@ You can alter an existing database table using the `schema.alterTable` method. T
 
 ```ts
 export default class extends BaseSchema {
-  up() {
+  async up() {
     // highlight-start
     this.schema.alterTable('user', (table) => {
       table.dropColumn('name')
@@ -211,7 +211,7 @@ You can rename the table using the `schema.renameTable`. The method accepts the 
 ```ts
 export default class extends BaseSchema {
   // highlight-start
-  up() {
+  async up() {
     this.schema.renameTable('user', 'app_users')
   }
   // highlight-end
@@ -223,7 +223,7 @@ You can drop the table using the `schema.dropTable`. The method accepts the tabl
 ```ts
 export default class extends BaseSchema {
   // highlight-start
-  down() {
+  async down() {
     this.schema.dropTable('users')
   }
   // highlight-end
@@ -254,7 +254,7 @@ We migrate the emails from the `users` table to the `user_emails` table in the f
 
 ```ts
 export default class extends BaseSchema {
-  up() {
+  async up() {
     this.schema.createTable('user_emails', (table) => {
       // table columns
     })
