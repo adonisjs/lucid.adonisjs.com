@@ -214,6 +214,8 @@ Following is the list of the `where` method variations and shares the same API.
 The `whereColumn` method allows you to define a column as the value for the where clause. The method is usually helpful with queries and joins. For example:
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereColumn('updated_at', '>', 'created_at')
@@ -248,6 +250,8 @@ Following is the list of the `whereColumn` method variations and shares the same
 Adds a where clause with case-sensitive substring comparison on a given column with a given value.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('posts')
   .whereLike('title', '%Adonis 101%')
@@ -257,6 +261,8 @@ db
 Adds a where clause with case-insensitive substring comparison on a given column with a given value. The method generates a slightly different for each dialect to achieve the case insensitive comparison.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('posts')
   .whereILike('title', '%Adonis 101%')
@@ -266,6 +272,8 @@ db
 The `whereIn` method is used to define the **wherein** SQL clause. The method accepts the column name as the first argument and an array of values as the second argument.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereIn('id', [1, 2, 3])
@@ -337,6 +345,8 @@ Following is the list of the `whereIn` method variations and shares the same API
 The `whereNull` method adds a where null clause to the query.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereNull('deleted_at')
@@ -357,6 +367,8 @@ Following is the list of the `whereNull` method variations and shares the same A
 The `whereExists` method allows adding where constraints by checking for the existence of results on a subquery. For example: Select all users who have at least logged in once.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereExists((query) => {
@@ -406,6 +418,8 @@ Following is the list of the `whereExists` method variations and shares the same
 The `whereBetween` method adds the **where between** clause. It accepts the column name as the first argument and an array of values as the second argument.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereBetween('age', [18, 60])
@@ -456,6 +470,8 @@ You can use the `whereRaw` method to express conditions not covered by the exist
 :::
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereRaw(`username = ${username}`)
@@ -491,6 +507,8 @@ Following is the list of the `whereRaw` method variations and shares the same AP
 Add a where clause with an object to match the value of a JSON column inside the database.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereJson('address', { city: 'XYZ', pincode: '110001' })
@@ -525,6 +543,8 @@ Following is the list of the `whereJson` method variations and shares the same A
 Add a clause where the value of the JSON column is the superset of the defined object. In the following example, the user address is stored as JSON and we find by the user by their pincode.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereJsonSuperset('address', { pincode: '110001' })
@@ -545,6 +565,8 @@ Following is the list of the `whereJsonSuperset` method variations and shares th
 Add a clause where the value of the JSON column is the subset of the defined object. In the following example, the user address is stored as JSON and we find by the user by their pincode or the city name.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereJsonSubset('address', { pincode: '110001', city: 'XYZ' })
@@ -565,6 +587,8 @@ Following is the list of the `whereJsonSubset` method variations and shares the 
 The `join` method allows specifying SQL joins between two tables. For example: Select the `ip_address` and the `country` columns by joining the `user_logins` table.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', 'users.id', '=', 'user_logins.user_id')
@@ -644,6 +668,8 @@ The `join` method uses the **inner join** by default, and you can use a differen
 You can use the `joinRaw` method to express conditions not covered by the query builder standard API.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .joinRaw('natural full join user_logins')
@@ -652,6 +678,8 @@ db
 ### onIn
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', (query) => {
@@ -662,6 +690,8 @@ db
 ### onNotIn
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', (query) => {
@@ -672,6 +702,8 @@ db
 ### onNull
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', (query) => {
@@ -682,6 +714,8 @@ db
 ### onNotNull
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', (query) => {
@@ -692,6 +726,8 @@ db
 ### onExists
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', (query) => {
@@ -707,6 +743,8 @@ db
 ### onNotExists
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', (query) => {
@@ -722,6 +760,8 @@ db
 ### onBetween
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', (query) => {
@@ -732,6 +772,8 @@ db
 ### onNotBetween
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .join('user_logins', (query) => {
@@ -744,6 +786,8 @@ db
 The `having` method adds the **having** clause. It accepts the column name as the first argument, followed by the optional operator and the value.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('exams')
   .select('user_id')
@@ -755,6 +799,8 @@ db
 Most of the time, you will find yourself using the `havingRaw` method, as you can define the aggregates for the having clause.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('exams')
   .select('user_id')
@@ -781,6 +827,8 @@ Following is the list of all the available **having methods**.
 The `distinct` method applies the **distinct** clause to the select statement. You can define one or more column names as multiple arguments.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .distinct('country')
@@ -809,6 +857,8 @@ db
 The `groupBy` method applies the **group by** clause to the query.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('logs')
   .select('url')
@@ -819,6 +869,8 @@ db
 The `groupByRaw` method allows writing a SQL query to define the group by statement.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('sales')
   .select('year')
@@ -829,6 +881,8 @@ db
 The `orderBy` method applies the **order by** clause to the query.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .orderBy('created_at', 'desc')
@@ -877,6 +931,8 @@ db
 Use the `orderByRaw` method to define the sort order from a SQL string.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const commentsCountQuery = db
   .raw(
     'select count(*) from comments where posts.id = comments.post_id'
@@ -892,6 +948,8 @@ db
 Apply offset to the SQL query
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db.from('posts').offset(11)
 ```
 
@@ -899,6 +957,8 @@ db.from('posts').offset(11)
 Apply a limit to the SQL query
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db.from('posts').limit(20)
 ```
 
@@ -909,6 +969,8 @@ The `forPage` is a convenient method to apply `offset` and `limit` using the pag
 - The second argument is the number of rows to fetch. Defaults to 20
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('posts')
   .forPage(request.input('page', 1), 20)
@@ -926,6 +988,8 @@ In PostgreSQL, the count method returns a string representation of a bigint data
 :::
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const users = await db
   .from('users')
   .count('* as total')
@@ -974,6 +1038,8 @@ The API for all the following aggregate methods is identical to the `count` meth
 The `union` method allows to you build up a union query by using multiple instances of the query builder. For example:
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .whereNull('last_name')
@@ -1056,6 +1122,8 @@ The following methods have the same API as the `union` method.
 The `with` method allows you to use CTE (Common table expression) in **PostgreSQL**, **Oracle**, **SQLite3** and the **MSSQL** databases.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .query()
   .with('aliased_table', (query) => {
@@ -1095,6 +1163,8 @@ SELECT * FROM "aliased_table"
 The `withMaterialized` and the `withNotMaterialized` methods allows you to use CTE (Common table expression) as materialized views in **PostgreSQL** and **SQLite3** database.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .query()
   .withMaterialized('aliased_table', (query) => {
@@ -1127,6 +1197,8 @@ In the following example, we calculate the sum of all children accounts of a par
 |  7 | Car service       |         2 |     60 |
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .query()
   .withRecursive('tree', (query) => {
@@ -1174,6 +1246,8 @@ Here's a great article explaining the [PostgreSQL Recursive Query](https://www.p
 The `update` method allows updating one or more database rows. You can make use of the query builder to add additional constraints when performing the update.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const affectedRows = db
   .from('users')
   .where('id', 1)
@@ -1199,6 +1273,8 @@ console.log(rows[0].email)
 The `increment` method allows incrementing the value for one or more columns.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('accounts')
   .where('id', 1)
@@ -1238,6 +1314,8 @@ WHERE
 The `decrement` method is the opposite of the `increment` method. However, the API is the same.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('accounts')
   .where('id', 1)
@@ -1248,6 +1326,8 @@ db
 The `delete` method issues a **delete** SQL query. You can make use of the query builder to add additional constraints when performing the delete.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .where('id', 1)
@@ -1260,6 +1340,8 @@ The `delete` method also has an alias called `del`.
 The `useTransaction` method instructs the query builder to wrap the query inside a transaction. The guide on [database transactions](../guides/transactions.md) covers different ways to create and use transactions in your application.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const trx = await db.transaction()
 
 db
@@ -1279,6 +1361,8 @@ Make sure always to supply the transaction object using the `useTransaction` met
 :::
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const user = db
   .from('users')
   .where('id', 1)
@@ -1291,6 +1375,8 @@ const user = db
 The `forShare` adds a **FOR SHARE in PostgreSQL** and a **LOCK IN SHARE MODE for MySQL** during a select statement.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const user = db
   .from('users')
   .where('id', 1)
@@ -1303,6 +1389,8 @@ const user = db
 The `skipLocked` method skips the rows locked by another transaction. The method is only supported by MySQL 8.0+ and PostgreSQL 9.5+.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .where('id', 1)
@@ -1321,6 +1409,8 @@ FOR UPDATE SKIP LOCKED
 The `noWait` method fails if any of the selected rows are locked by another transaction. The method is only supported by MySQL 8.0+ and PostgreSQL 9.5+.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .where('id', 1)
@@ -1339,6 +1429,8 @@ FOR UPDATE NOWAIT
 The `clone` method returns a new query builder object with all constraints applied from the original query.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.from('users').select('id', 'email')
 const clonedQuery = query.clone().clearSelect()
 
@@ -1350,6 +1442,8 @@ await clonedQuery // select * from "users"
 The `debug` method allows enabling or disabling debugging at an individual query level. Here's a [complete guide](../guides/debugging.md) on debugging queries.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .debug(true)
@@ -1361,6 +1455,8 @@ Define the `timeout` for the query. An exception is raised after the timeout has
 The value of timeout is always in milliseconds.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .timeout(2000)
@@ -1378,6 +1474,8 @@ db
 The `toSQL` method returns the query SQL and bindings as an object.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const output = db
   .from('users')
   .where('id', 1)
@@ -1402,6 +1500,8 @@ console.log(output)
 Returns the SQL query after applying the bind params.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const output = db
   .from('users')
   .where('id', 1)
@@ -1415,6 +1515,8 @@ console.log(output)
 The query builder extends the native `Promise` class. You can execute the queries using the `await` keyword or chaining the `then/catch` methods.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .then((users) => {
@@ -1445,6 +1547,8 @@ First does NOT mean the first row in the table. It means the first row from the 
 :::
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const user = await db
   .from('users')
   .where('id', 1)
@@ -1459,6 +1563,8 @@ if (user) {
 The `firstOrFail` method is similar to the `first` method except, it raises an exception when no rows are found.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const user = await db
   .from('users')
   .where('id', 1)
@@ -1469,6 +1575,8 @@ const user = await db
 The query builder has first-class support for offset-based pagination. It also automatically counts the number of total rows by running a separate query behind the scenes.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const page = request.input('page', 1)
 const limit = 20
 
@@ -1634,6 +1742,8 @@ Following is the list of properties and methods you may occasionally need when b
 Reference to the instance of the underlying [database query client](https://github.com/adonisjs/lucid/blob/develop/src/query_client/index.ts).
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.query()
 console.log(query.client)
 ```
@@ -1642,6 +1752,8 @@ console.log(query.client)
 Reference to the instance of the underlying KnexJS query.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.query()
 console.log(query.knexQuery)
 ```
@@ -1650,6 +1762,8 @@ console.log(query.knexQuery)
 A boolean to know if the query is using any of the aggregate methods.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.from('posts').count('* as total')
 console.log(query.hasAggregates) // true
 ```
@@ -1658,6 +1772,8 @@ console.log(query.hasAggregates) // true
 A boolean to know if the query is using a group by clause.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.from('posts').groupBy('tenant_id')
 console.log(query.hasGroupBy) // true
 ```
@@ -1666,6 +1782,8 @@ console.log(query.hasGroupBy) // true
 A boolean to know if the query is using a union.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db
   .from('users')
   .whereNull('last_name')
@@ -1680,6 +1798,8 @@ console.log(query.hasUnion) // true
 Call this method to clear selected columns.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.query().select('id', 'title')
 query.clone().clearSelect()
 ```
@@ -1688,6 +1808,8 @@ query.clone().clearSelect()
 Call this method to clear where clauses.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.query().where('id', 1)
 query.clone().clearWhere()
 ```
@@ -1696,6 +1818,8 @@ query.clone().clearWhere()
 Call this method to clear the order by constraint.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.query().orderBy('id', 'desc')
 query.clone().clearOrder()
 ```
@@ -1704,6 +1828,8 @@ query.clone().clearOrder()
 Call this method to clear the having clause.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.query().having('total', '>', 100)
 query.clone().clearHaving()
 ```
@@ -1712,6 +1838,8 @@ query.clone().clearHaving()
 Call this method to clear the applied limit.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.query().limit(20)
 query.clone().clearLimit()
 ```
@@ -1720,6 +1848,8 @@ query.clone().clearLimit()
 Call this method to clear the applied offset.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.query().offset(20)
 query.clone().clearOffset()
 ```
@@ -1730,6 +1860,8 @@ The query builder emits the `db:query` event and reports the query's execution t
 Using the `reporterData` method, you can pass additional details to the event and the profiler.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 const query = db.from('users')
 
 await query
@@ -1749,6 +1881,8 @@ Event.on('db:query', (query) => {
 Specify the PostgreSQL schema to use when executing the query.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .withSchema('public')
@@ -1759,6 +1893,8 @@ db
 Specify the alias for a given query. Usually helpful when passing the query builder instance as a subquery. For example:
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .select(
@@ -1777,6 +1913,8 @@ db
 The `if` helper allows you to conditionally add constraints to the query builder. For example:
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .if(searchQuery, (query) => {
@@ -1801,6 +1939,8 @@ db
 The `unless` method is opposite of the `if` helper.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('projects')
   .unless(filters.status, () => {
@@ -1830,6 +1970,8 @@ The `match` helper allows you define an array of conditional blocks to match fro
 In the following example, the query builder will go through all the conditional blocks and executes the first matching one and discards the other. **Think of it as a `switch` statement in JavaScript**.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .query()
   .match(
@@ -1850,6 +1992,8 @@ db
 The `ifDialect` helper allows you to conditionally add constraints to the query builder when dialect matches one of the mentioned dialects.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .query()
@@ -1873,6 +2017,8 @@ db
 The `unlessDialect` method is opposite of the `ifDialect` helper.
 
 ```ts
+import db from '@adonisjs/lucid/services/db'
+
 db
   .from('users')
   .unlessDialect('postgres', (query) => {
