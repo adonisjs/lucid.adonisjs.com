@@ -39,7 +39,7 @@ The query scopes can also accept arguments. For example: Creating a scope that a
 
 ```ts
 import { DateTime } from 'luxon'
-import User from 'App/Models/User'
+import User from '#models/user'
 import { BaseModel, column, scope } from '@adonisjs/lucid/orm'
 
 export default class Project extends BaseModel {
