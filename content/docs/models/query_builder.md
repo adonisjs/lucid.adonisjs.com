@@ -1,6 +1,6 @@
 # Model query builder
 
-The [ModelQueryBuilder](https://github.com/adonisjs/lucid/blob/develop/src/Orm/QueryBuilder/index.ts) extends the standard [SelectQueryBuilder](../query_builders/select.md) and hence all of the methods are available to the model query builder as well.
+The [ModelQueryBuilder](https://github.com/adonisjs/lucid/blob/develop/src/orm/query_builder/index.ts) extends the standard [SelectQueryBuilder](../query_builders/select.md) and hence all of the methods are available to the model query builder as well.
 
 :::note
 
@@ -218,7 +218,7 @@ console.log(posts[0] instanceof Post) // false
 ```
 
 ## paginate
-The `paginate` method on the ORM query builder returns an instancer of the [ModelPaginator](https://github.com/adonisjs/lucid/blob/develop/src/Orm/Paginator/index.ts). The Model paginator class has an additional `.serialize` method to serialize the models.
+The `paginate` method on the ORM query builder returns an instancer of the [ModelPaginator](https://github.com/adonisjs/lucid/blob/develop/src/orm/paginator/index.ts). The Model paginator class has an additional `.serialize` method to serialize the models.
 
 ```ts
 const posts = await Post.query().paginate(1)
