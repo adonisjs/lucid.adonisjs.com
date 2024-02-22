@@ -70,7 +70,7 @@ db
 
 ## Listening to the Event
 
-Once you have enabled debugging, you can listen for the `db:query` event using the [emitter](https://docs.adonisjs.com/emitter) service.
+Once you have enabled debugging, you can listen for the `db:query` event using the [emitter](https://docs.adonisjs.com/guides/emitter) service.
 
 ```ts
 // title: start/events.ts
@@ -95,7 +95,7 @@ emitter.on('db:query', db.prettyPrint)
 
 ## Debugging in production
 
-Pretty printing queries add additional overhead to the process and can impact the performance of your application. Hence, we recommend using the [Logger](https://docs.adonisjs.com/logger) to log the database queries during production.
+Pretty printing queries add additional overhead to the process and can impact the performance of your application. Hence, we recommend using the [Logger](https://docs.adonisjs.com/guides/logger) to log the database queries during production.
 
 Following is a complete example of switching the event listener based upon the application environment.
 
