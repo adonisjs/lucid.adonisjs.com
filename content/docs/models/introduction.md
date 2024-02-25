@@ -152,6 +152,26 @@ The `@column` decorator additionally accepts options to configure the property b
 - The `isPrimary` option marks the property as the primary key for the given database table.
 - The `serializeAs: null` option removes the property when you serialize the model to JSON.
 
+### Column names
+
+Lucid assumes that your database columns names are defined as `snake_case` and automatically converts the model properties to snake case during database queries. For example:
+
+```ts
+await User.create({ avatarUrl: 'foo.jpg' })
+
+// EXECUTED QUERY
+// insert into "users" ("avatar_url") values (?)
+```
+
+If you are not using the `snake_case` convention in your database, then you can override the default behavior of Lucid by defining a custom [Naming Strategy](./naming_strategy.md)
+
+You can also define the database column names explicitly within the `@column` decorator. This is usually helpful for bypassing the convention in specific use cases.
+
+```ts
+@column({ columnName: 'user_id', isPrimary: true })
+declare id: number
+```
+
 ### Date columns
 
 Lucid further enhances the date and the date-time properties and converts the database driver values to an instance of [luxon.DateTime](https://moment.github.io/luxon/).
@@ -176,25 +196,6 @@ export default class User extends BaseModel {
 
 Optionally, you can pass the `autoCreate` and `autoUpdate` options to always define the timestamps during the creation and the update operations. **Do note, setting these options doesn't modify the database table or its triggers.**
 
-### Column names
-
-Lucid assumes that your database columns names are defined as `snake_case` and automatically converts the model properties to snake case during database queries. For example:
-
-```ts
-await User.create({ avatarUrl: 'foo.jpg' })
-
-// EXECUTED QUERY
-// insert into "users" ("avatar_url") values (?)
-```
-
-If you are not using the `snake_case` convention in your database, then you can override the default behavior of Lucid by defining a custom [Naming Strategy](./naming_strategy.md)
-
-You can also define the database column names explicitly within the `@column` decorator. This is usually helpful for bypassing the convention in specific use cases.
-
-```ts
-@column({ columnName: 'user_id', isPrimary: true })
-declare id: number
-```
 
 ## Models config
 
