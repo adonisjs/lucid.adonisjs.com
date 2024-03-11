@@ -97,6 +97,18 @@ const user = await User.findBy('email', 'virk@adonisjs.com')
 // SQL: SELECT * from "users" WHERE "email" = 'virk@adonisjs.com' LIMIT 1;
 ```
 
+### findManyBy
+
+Find multiple record by one or multiple column name and its value. This method returns an array of model instance or `null`.
+
+```ts
+const users = await User.findManyBy('status', 'active')
+// SQL: SELECT * from "users" WHERE "status" = 'active';
+
+const posts = await Post.findManyBy({ status: 'published', userId: 1 })
+// SQL: SELECT * from "posts" WHERE "status" = 'published' AND "userId" = 1;
+```
+
 ### first
 
 Fetch the first record from the database. Returns `null` when there are no records.
