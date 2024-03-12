@@ -99,7 +99,7 @@ const user = await User.findBy('email', 'virk@adonisjs.com')
 
 ### findManyBy
 
-Find multiple record by one or multiple column name and its value. This method returns an array of model instance or `null`.
+Find multiple record by one or multiple column name and its value. This method returns an array of model instance or an empty array (`[]`).
 
 ```ts
 const users = await User.findManyBy('status', 'active')
