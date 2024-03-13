@@ -4,9 +4,9 @@ summary: A guide on debugging Lucid database queries.
 
 # Debugging
 
-Lucid emits the `db:query` event when debugging is enabled globally or for an individual query.
+You can debug SQL queries by first enabling the `debug` mode and then listen for the `db:query` event to get notified as SQL queries are executed.
 
-You can enable debugging globally by setting the `debug` flag to `true` inside the `config/database.ts` file.
+The debug mode can be enabled globally for a database connection by setting  the `debug` flag to `true` inside the `config/database.ts` file. For example:
 
 ```ts
 // title: config/database.ts
@@ -33,7 +33,7 @@ const dbConfig = defineConfig({
 })
 ```
 
-You can enable debugging for an individual query using the `debug` method on the query builder.
+Or, you can enable it for an individual query using the `debug` method on the query builder.
 
 :::codegroup
 
@@ -68,50 +68,43 @@ db
 
 :::
 
-## Listening to the Event
+## Pretty printing debug queries
+Once the debugging has been enabled you can set the `prettyPrintDebugQueries` flag to `true` within the `config/database.ts` file.
 
-Once you have enabled debugging, you can listen for the `db:query` event using the [emitter](https://docs.adonisjs.com/guides/emitter) service.
+This flag will register an event listener for the `db:query` event and will print the SQL queries to the console.
 
 ```ts
-// title: start/events.ts
-import emitter from '@adonisjs/core/services/emitter'
+// title: config/database.ts
+import env from '#start/env'
+import { defineConfig } from '@adonisjs/lucid'
 
-emitter.on('db:query', function ({ sql, bindings }) {
-  console.log(sql, bindings)
+const dbConfig = defineConfig({
+  // highlight-start
+  prettyPrintDebugQueries: true,
+  // highlight-end
+  connection: 'postgres',
+  connections: {
+    postgres: {
+      client: 'pg',
+      connection: {
+        // ...
+      },
+      debug: true
+    },
+  },
 })
 ```
 
-### Pretty print queries
+## Manually listening for the event
+If you do not want to pretty print SQL queries and write them to the console, then you can self listen for the `db:query` event and self handle the treatment of debug logs.
 
-You can use the `db.prettyPrint` method as the event listener to pretty-print the queries on the console.
+In the following example, we use the application logger to log the queries.
 
 ```ts
 // title: start/events.ts
 import emitter from '@adonisjs/core/services/emitter'
-import db from '@adonisjs/lucid/services/db'
 
-emitter.on('db:query', db.prettyPrint)
-```
-
-## Debugging in production
-
-Pretty printing queries add additional overhead to the process and can impact the performance of your application. Hence, we recommend using the [Logger](https://docs.adonisjs.com/guides/logger) to log the database queries during production.
-
-Following is a complete example of switching the event listener based upon the application environment.
-
-```ts
-// title: start/events.ts
-import db from '@adonisjs/lucid/services/db'
-import emitter from '@adonisjs/core/services/emitter'
-
-import logger from '@adonisjs/core/services/logger'
-import app from '@adonisjs/core/services/app'
-
-emitter.on('db:query', (query) => {
-  if (app.inProduction) {
-    logger.debug(query)
-  } else {
-    db.prettyPrint(query)
-  }
+emitter.on('db:query', function (query) {
+  logger.debug(query)
 })
 ```
