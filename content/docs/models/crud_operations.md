@@ -280,3 +280,27 @@ const usersToCreate = [
 
 await User.updateOrCreateMany('email', usersToCreate)
 ```
+
+In this example, we use both the email and username as keys to find duplicates. If a row already exists with the same combination of email and username, it will be updated with the new provided values. 
+Otherwise, a new row will be created with the provided values.
+
+```ts
+import User from '#models/user'
+
+const usersToCreate = [
+  {
+    email: 'foo@example.com',
+    username: 'foo',
+  },
+  {
+    email: 'bar@example.com',
+    username: 'bar',
+  },
+  {
+    email: 'baz@example.com',
+    username: 'baz',
+  },
+]
+
+await User.updateOrCreateMany(['email', 'username'], usersToCreate)
+```
