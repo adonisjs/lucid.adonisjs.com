@@ -112,6 +112,13 @@ The `migration:reset` command is basically an alias for `migration:rollback --ba
 node ace migration:reset
 ```
 
+To rollback a specific number of migrations, you can use the `--step` flag.
+
+```sh
+# Rollback the last 3 migrations
+node ace migration:rollback --step=3
+```
+
 The rollback command executes the `down` method of the migration class. Like the `up` method, the SQL statements of the `down` method are also wrapped inside a database transaction.
 
 ### Rollback and migrate using a single command
