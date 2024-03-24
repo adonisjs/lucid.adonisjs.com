@@ -167,7 +167,7 @@ const user = await UserFactory.with('posts', 2, (post) => post.with('comments', 
 
 ### Pivot attributes
 
-When creating a [many to many](relationships.md#manytomany) relationship, you can define the attributes for the pivot table using the `pivotAttributes` method.
+When creating a [many to many](./relationships.md#manytomany) relationship, you can define the attributes for the pivot table using the `pivotAttributes` method.
 
 In the following example, the `User` model has a many to many relationship with the `Team` model and we define the user role within a given team.
 
