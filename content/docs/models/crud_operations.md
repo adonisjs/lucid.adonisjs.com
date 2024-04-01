@@ -226,7 +226,7 @@ await User.firstOrCreate(searchPayload, savePayload)
 
 ### fetchOrCreateMany
 
-The `fetchOrCreateMany` is similar to the `firstOrCreate` method, but instead, you can create more than one row. The method needs a unique key for finding the duplicate rows and an array of objects to persist (if missing inside the database).
+The `fetchOrCreateMany` is similar to the `firstOrCreate` method, but instead, you can create more than one row. The method needs an array of objects to persist (if missing inside the database) and a unique key for finding the duplicate rows.
 
 ```ts
 import User from '#models/user'
@@ -243,7 +243,7 @@ const usersToCreate = [
   },
 ]
 
-await User.fetchOrCreateMany('email', usersToCreate)
+await User.fetchOrCreateMany(usersToCreate, 'email')
 ```
 
 ### updateOrCreate
@@ -261,7 +261,7 @@ await User.updateOrCreate(searchPayload, persistancePayload)
 
 ### updateOrCreateMany
 
-The `updateOrCreateMany` method allows syncing rows by avoiding duplicate entries. The method needs a unique key for finding the duplicate rows and an array of objects to persist/update.
+The `updateOrCreateMany` method allows syncing rows by avoiding duplicate entries. The method needs an array of objects to persist/update and a unique key for finding the duplicate rows.
 
 ```ts
 import User from '#models/user'
@@ -278,7 +278,7 @@ const usersToCreate = [
   },
 ]
 
-await User.updateOrCreateMany('email', usersToCreate)
+await User.updateOrCreateMany(usersToCreate, 'email')
 ```
 
 In this example, we use both the email and username as keys to find duplicates. If a row already exists with the same combination of email and username, it will be updated with the new provided values. 
@@ -302,5 +302,5 @@ const usersToCreate = [
   },
 ]
 
-await User.updateOrCreateMany(['email', 'username'], usersToCreate)
+await User.updateOrCreateMany(usersToCreate, ['email', 'username'])
 ```
