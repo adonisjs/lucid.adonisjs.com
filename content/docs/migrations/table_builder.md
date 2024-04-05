@@ -333,7 +333,7 @@ this.schema.createTable('users', (table) => {
 Make sure also to create the UUID extension for PostgreSQL. You can also do it inside a dedicated migration file as follows:
 
 ```ts
-import BaseSchema from '@ioc:Adonis/Lucid/Schema'
+import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class SetupExtensions extends BaseSchema {
   async up() {

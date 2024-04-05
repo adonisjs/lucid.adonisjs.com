@@ -170,7 +170,8 @@ The `withScopes` method allows you to leverage the query scopes defined on the m
 Begin by defining a query scope.
 
 ```ts
-import { BaseModel, scope } from '@ioc:Adonis/Lucid/Orm'
+import { BaseSchema } from '@adonisjs/lucid/schema'
+import { scope } from '@adonisjs/lucid/orm'
 
 export default class Team extends BaseModel {
 
