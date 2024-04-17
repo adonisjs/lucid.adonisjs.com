@@ -11,7 +11,7 @@ By the end of this guide, you will know:
 - How to create and use factories
 - How to define factory states
 - Working with model relationships
-- Using the faker API to generate and use random data
+- Using the [faker API](https://fakerjs.dev/api/) to generate and use random data
 
 ## Creating factories
 
@@ -39,7 +39,7 @@ export const UserFactory = Factory.define(User, ({ faker }) => {
 
 - The `Factory.define` method accepts a total of two arguments.
 - The first argument is reference to the Lucid model.
-- The second argument is a callback that returns an object of properties to be used when persisting the model instance. Make sure that you return an object with all the required properties, otherwise the database will raise `not null` exceptions.
+- The second argument is a callback that returns an object of properties to be used when persisting the model instance. Make sure that you return an object with all the required properties, otherwise the database will raise `not null` exceptions. The `faker` option passed into the callback is an instance of [Faker.js](https://fakerjs.dev/api/)
 - Finally, make sure to call the `build` method.
 
 ## Using factories
