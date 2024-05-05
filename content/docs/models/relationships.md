@@ -82,7 +82,7 @@ By default, the `foreignKey` is the **snake_case representation of the parent mo
 @hasOne(() => Profile, {
   foreignKey: 'profileUserId', // defaults to userId
 })
-profile: HasOne<typeof Profile>
+declare profile: HasOne<typeof Profile>
 ```
 
 :::note
@@ -95,7 +95,7 @@ The local key is always the **primary key of the parent model** but can also be 
 @hasOne(() => Profile, {
   localKey: 'uuid', // defaults to id
 })
-profile: HasOne<typeof Profile>
+declare profile: HasOne<typeof Profile>
 ```
 
 ## HasMany
@@ -178,7 +178,7 @@ By default, the `foreignKey` is the **camelCase representation of the parent mod
 @hasMany(() => Post, {
   foreignKey: 'authorId', // defaults to userId
 })
-posts: HasMany<typeof Post>
+declare posts: HasMany<typeof Post>
 ```
 
 :::note
@@ -191,7 +191,7 @@ The local key is always the **primary key of the parent model** but can also be 
 @hasMany(() => Post, {
   localKey: 'uuid', // defaults to id
 })
-posts: HasMany<typeof Post>
+declare posts: HasMany<typeof Post>
 ```
 
 ## BelongsTo
@@ -342,7 +342,7 @@ A manyToMany relation relies on many different keys to properly set up the relat
   relatedKey: 'id',
   pivotRelatedForeignKey: 'skill_id',
 })
-skills: ManyToMany<typeof Skill>
+declare skills: ManyToMany<typeof Skill>
 ```
 
 :::note
@@ -357,7 +357,7 @@ The default value for the pivot table name is computed by [combining](https://gi
 @manyToMany(() => Skill, {
   pivotTable: 'user_skills',
 })
-skills: ManyToMany<typeof Skill>
+declare skills: ManyToMany<typeof Skill>
 ```
 
 ### Additional pivot columns
@@ -370,7 +370,7 @@ You will have to inform a manyToMany relationship about this extra column. Other
 @manyToMany(() => Skill, {
   pivotColumns: ['proficiency'],
 })
-skills: ManyToMany<typeof Skill>
+declare skills: ManyToMany<typeof Skill>
 ```
 
 ### Pivot table timestamps
@@ -384,7 +384,7 @@ You can enable the support for **created at** and **updated at** timestamps for 
 @manyToMany(() => Skill, {
   pivotTimestamps: true
 })
-skills: ManyToMany<typeof Skill>
+declare skills: ManyToMany<typeof Skill>
 ```
 
 Settings `pivotTimestamps = true` assumes the column names are defined as `created_at` and `updated_at`. However, you can define custom column names as well.
@@ -396,7 +396,7 @@ Settings `pivotTimestamps = true` assumes the column names are defined as `creat
     updatedAt: 'updation_date'
   }
 })
-skills: ManyToMany<typeof Skill>
+declare skills: ManyToMany<typeof Skill>
 ```
 
 To disable a particular timestamp, you can set its value to `false`.
