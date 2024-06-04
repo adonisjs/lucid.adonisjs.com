@@ -225,10 +225,12 @@ Factory.stubId((counter, model) => {
 You can make use of the `makeStubbed` hook to customize the id generation behavior for an individual factory.
 
 ```ts
+import { randomUUID } from 'node:crypto'
+
 Factory.define(Post, () => {
   return {}
 }).before('makeStubbed', (_, model) => {
-  model.id = uuid.v4()
+  model.id = randomUUID()
 })
 ```
 

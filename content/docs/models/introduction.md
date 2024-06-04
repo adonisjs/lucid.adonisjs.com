@@ -235,7 +235,7 @@ export default class User extends BaseModel {
 Set this option to `true` if you don't rely on the database to generate the primary keys. For example, You want to self-assign `uuid` to the new rows.
 
 ```ts
-import uuid from 'uuid/v4'
+import { randomUUID } from 'node:crypto'
 import { BaseModel, beforeCreate } from '@adonisjs/lucid/orm'
 
 export default class User extends BaseModel {
@@ -246,7 +246,7 @@ export default class User extends BaseModel {
 
   @beforeCreate()
   static assignUuid(user: User) {
-    user.id = uuid()
+    user.id = randomUUID()
   }
 }
 ```
