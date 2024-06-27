@@ -196,6 +196,20 @@ export default class User extends BaseModel {
 
 Optionally, you can pass the `autoCreate` and `autoUpdate` options to always define the timestamps during the creation and the update operations. **Do note, setting these options doesn't modify the database table or its triggers.**
 
+If you don't want Luxon and prefer regular `Date` objects, you still can use a regular `@column` in combination with `consume` and `prepare`
+
+```ts
+import { BaseModel, column } from '@adonisjs/lucid/orm'
+
+export default class User extends BaseModel {
+  @column({
+    consume: (v: string) => new Date(v),
+    prepare: (v: Date) => v.toISOString(), 
+  )
+  declare updatedAt: Date
+}
+```
+
 
 ## Models config
 
