@@ -168,8 +168,33 @@ If you are not using the `snake_case` convention in your database, then you can 
 You can also define the database column names explicitly within the `@column` decorator. This is usually helpful for bypassing the convention in specific use cases.
 
 ```ts
-@column({ columnName: 'user_id', isPrimary: true })
-declare id: number
+import { BaseModel, column } from '@adonisjs/lucid/orm'
+
+export default class User extends BaseModel {
+  @column({ columnName: 'user_id', isPrimary: true })
+  declare id: number
+}
+```
+
+### Preparing and consuming columns
+
+Lucid allows you to transform the column values before saving them to the database or after fetching them from the database using the `consume` and `prepare` option.
+
+For example, you are storing a "secret" value in the database, and you want to encrypt it before saving it and decrypt it after fetching it.
+
+```ts
+// In this example, we are using the `encryption` module from the `@adonisjs/core` package
+// @see https://docs.adonisjs.com/guides/security/encryption
+import encryption from '@adonisjs/core/services/encryption'
+import { BaseModel, column } from '@adonisjs/lucid/orm'
+
+export default class User extends BaseModel {
+  @column({
+    prepare: (value: string | null) => (value ? encryption.encrypt(value) : null),
+    consume: (value: string | null) => (value ? encryption.decrypt(value) : null),
+  })
+  declare token: string | null
+}
 ```
 
 ### Date columns
@@ -195,7 +220,6 @@ export default class User extends BaseModel {
 ```
 
 Optionally, you can pass the `autoCreate` and `autoUpdate` options to always define the timestamps during the creation and the update operations. **Do note, setting these options doesn't modify the database table or its triggers.**
-
 
 ## Models config
 
