@@ -4,7 +4,20 @@ Lucid models make it very easy to perform CRUD operations and also define lifecy
 
 ## Create
 
-You can create and persist new records to the database by first assigning values to the model instance and then calling the `save` method.
+You can create and persist new records to the database by using the static `create` method.
+
+```ts
+import User from '#models/user'
+
+const user = await User.create({
+  username: 'virk',
+  email: 'virk@adonisjs.com',
+})
+
+console.log(user.$isPersisted) // true
+```
+
+Additionally, you can create and persist new records to the database by first assigning values to the model instance and then calling the `save` method.
 
 The `save` method performs the **INSERT** query when persisting the model instance for the first time and performs the **UPDATE** query when the model has persisted.
 
@@ -25,22 +38,13 @@ console.log(user.$isPersisted) // true
 Also, you can use the `fill` method to define all the attributes as once and then call the `save` method.
 
 ```ts
-await user.fill({ username: 'virk', email: 'virk@adonisjs.com' }).save()
-
-console.log(user.$isPersisted) // true
-```
-
-### create
-
-The `static create` method creates the model instance and persists it to the database in one go.
-
-```ts
 import User from '#models/user'
+const user = new User()
 
-const user = await User.create({
-  username: 'virk',
-  email: 'virk@adonisjs.com',
-})
+// Assign username and email using the fill method and then save
+await user
+  .fill({ username: 'virk', email: 'virk@adonisjs.com' })
+  .save()
 
 console.log(user.$isPersisted) // true
 ```
@@ -165,6 +169,7 @@ The standard way to perform updates using the model is to look up the record and
 
 ```ts
 const user = await User.findOrFail(1)
+
 user.lastLoginAt = DateTime.local() // Luxon dateTime is used
 
 await user.save()
