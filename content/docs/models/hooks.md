@@ -203,10 +203,10 @@ import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
 
 export default class User extends BaseModel {
   @beforePaginate()
-  static ignoreDeleted ([
+  static ignoreDeleted (
     countQuery: ModelQueryBuilderContract<typeof User>,
     query: ModelQueryBuilderContract<typeof User>,
-  ]) {
+  ) {
     query.whereNull('is_deleted')
     countQuery.whereNull('is_deleted')
   }
