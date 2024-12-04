@@ -227,7 +227,7 @@ Following are the configuration options to overwrite the conventional defaults.
 
 ### primaryKey
 
-Define a custom primary key (defaults to id). Setting the `primaryKey` on the model doesn't modify the database. Here, you are just telling Lucid to consider id as the unique value for each row.
+Define a custom primary key (defaults to `id`). Setting the `primaryKey` on the model doesn't modify the database. Here, you are just telling Lucid to consider `email` as the unique value for each row.
 
 ```ts
 class User extends Basemodel {
@@ -235,7 +235,7 @@ class User extends Basemodel {
 }
 ```
 
-Or use the `primaryKey` column option.
+Or use the `isPrimary` column option.
 
 ```ts
 class User extends Basemodel {
