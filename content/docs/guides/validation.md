@@ -34,8 +34,8 @@ The rule is a macro for `VineString` and `VineNumber`, so you can use it after `
 
 You may either pass a callback to query the database directly, or an object:
 
-- The callback must return `true` if the value is unique (does not exist), or `false` if the value already exists.
-- You may also pass an options object to specify the table and column.
+- The [callback](https://github.com/adonisjs/lucid/blob/21.x/src/types/vine.ts#L61-L65) must return `true` if the value is unique (does not exist), or `false` if the value already exists.
+- You may also pass an [options object](https://github.com/adonisjs/lucid/blob/21.x/src/types/vine.ts#L17-L55) to specify the table and column.
 
 ```ts
 // Usage with callback
@@ -56,20 +56,8 @@ const schema = vine.object({
     .string()
     // highlight-start
     .unique({ table: 'users', column: 'email' }),
-  // highlight-end
+    // highlight-end
 })
-```
-
-Following is the list of available parameters for the unique rule:
-
-```ts
-type UniqueRuleCallback = (db: Database, value: string, field: FieldContext) => Promise<boolean>
-
-type UniqueRuleOptions = {
-  table: string
-  column?: string
-  filter?: (db: DatabaseQueryBuilderContract, value: unknown, field: FieldContext) => Promise<void>
-}
 ```
 
 You may also use your Lucid model directly inside the callback:
@@ -81,7 +69,7 @@ const schema = vine.object({
     // highlight-start
     .unique((_, value) => {
       const row = await User.findBy('email', value)
-      return row === null
+      return row ? false : true
     }),
   // highlight-end
 })
@@ -97,8 +85,8 @@ The rule is also a macro for `VineString` and `VineNumber`, so you can use it af
 
 You may either pass a callback to query the database directly, or an object:
 
-- The callback must return `true` if the value exists, `false` otherwise.
-- You may also pass an option object to specify the table and column.
+- The [callback](https://github.com/adonisjs/lucid/blob/21.x/src/types/vine.ts#L61-L65) must return `true` if the value exists, `false` otherwise.
+- You may also pass an [options object](https://github.com/adonisjs/lucid/blob/21.x/src/types/vine.ts#L17-L55) to specify the table and column.
 
 ```ts
 // Usage with callback
@@ -121,16 +109,4 @@ const schema = vine.object({
     .exists({ table: 'categories', column: 'slug' }),
   // highlight-end
 })
-```
-
-Following is the list of available parameters for the exists rule:
-
-```ts
-type ExistsRuleCallback = (db: Database, value: string, field: FieldContext) => Promise<boolean>
-
-type ExistsRuleOptions = {
-  table: string
-  column?: string
-  filter?: (db: DatabaseQueryBuilderContract, value: unknown, field: FieldContext) => Promise<void>
-}
 ```
