@@ -351,7 +351,7 @@ Remember, if you intend to use camelCase for your foreign key definition, keep i
 
 ### Custom pivot table
 
-The default value for the pivot table name is computed by [combining](https://github.com/adonisjs/lucid/blob/develop/src/orm/naming_strategies/camel_case.ts#L74) the **parent model name** and the **related model name**. However, you can also define a custom pivot table.
+The default value for the pivot table name is computed by [sorting, then combining](https://github.com/adonisjs/lucid/blob/develop/src/orm/naming_strategies/camel_case.ts#L74) the **parent model name** and the **related model name**. However, you can also define a custom pivot table.
 
 ```ts
 @manyToMany(() => Skill, {
