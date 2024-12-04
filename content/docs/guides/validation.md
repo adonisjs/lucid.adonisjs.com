@@ -96,7 +96,7 @@ const schema = vine.object({
     // highlight-start
     .exists((db, value) => {
       const row = await db.from('categories').where('slug', value).first()
-      return row !== null
+      return row ? true : false
     }),
   // highlight-end
 })
