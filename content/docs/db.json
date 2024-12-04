@@ -36,6 +36,12 @@
     "category": "Guides"
   },
   {
+    "permalink": "validation",
+    "title": "Validation rules",
+    "contentPath": "./guides/validation.md",
+    "category": "Guides"
+  },
+  {
     "permalink": "select-query-builder",
     "title": "Select query builder",
     "contentPath": "./query_builders/select.md",
