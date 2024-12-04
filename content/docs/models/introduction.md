@@ -168,8 +168,33 @@ If you are not using the `snake_case` convention in your database, then you can 
 You can also define the database column names explicitly within the `@column` decorator. This is usually helpful for bypassing the convention in specific use cases.
 
 ```ts
-@column({ columnName: 'user_id', isPrimary: true })
-declare id: number
+import { BaseModel, column } from '@adonisjs/lucid/orm'
+
+export default class User extends BaseModel {
+  @column({ columnName: 'user_id', isPrimary: true })
+  declare id: number
+}
+```
+
+### Preparing and consuming columns
+
+Lucid allows you to transform the column values before saving them to the database or after fetching them from the database using the `consume` and `prepare` option.
+
+For example, you are storing a "secret" value in the database, and you want to encrypt it before saving it and decrypt it after fetching it.
+
+```ts
+// In this example, we are using the `encryption` module from the `@adonisjs/core` package
+// @see https://docs.adonisjs.com/guides/security/encryption
+import encryption from '@adonisjs/core/services/encryption'
+import { BaseModel, column } from '@adonisjs/lucid/orm'
+
+export default class User extends BaseModel {
+  @column({
+    prepare: (value: string | null) => (value ? encryption.encrypt(value) : null),
+    consume: (value: string | null) => (value ? encryption.decrypt(value) : null),
+  })
+  declare token: string | null
+}
 ```
 
 ### Date columns
@@ -210,14 +235,13 @@ export default class User extends BaseModel {
 }
 ```
 
-
 ## Models config
 
 Following are the configuration options to overwrite the conventional defaults.
 
 ### primaryKey
 
-Define a custom primary key (defaults to id). Setting the `primaryKey` on the model doesn't modify the database. Here, you are just telling Lucid to consider id as the unique value for each row.
+Define a custom primary key (defaults to `id`). Setting the `primaryKey` on the model doesn't modify the database. Here, you are just telling Lucid to consider `email` as the unique value for each row.
 
 ```ts
 class User extends Basemodel {
@@ -225,7 +249,7 @@ class User extends Basemodel {
 }
 ```
 
-Or use the `primaryKey` column option.
+Or use the `isPrimary` column option.
 
 ```ts
 class User extends Basemodel {

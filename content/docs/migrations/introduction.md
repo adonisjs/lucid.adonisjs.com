@@ -26,7 +26,7 @@ You can also create a Lucid model and the migration together by running the `nod
 ```sh
 node ace make:migration users
 
-# CREATE: database/migrations/1630981615472_users.ts
+# CREATE: database/migrations/1630981615472_create_users_table.ts
 ```
 
 If you will notice, the migration filename is prefixed with some numeric value. We add the current timestamp to the filename so that the migration files are sorted in the order created.
@@ -38,7 +38,7 @@ A migration class always extends the [BaseSchema](https://github.com/adonisjs/lu
 - The `up` method is used to evolve the database schema further. Usually, you will create new tables/indexes or alter existing tables inside this method.
 - The `down` method is used to roll back the actions executed by the `up` method. For example, if the up method creates a table, the down method should drop the same table.
 
-Both the methods have access to the [Schema builder](./schema_builder.md) that you can use to construct SQL DDL queries.
+Both methods have access to the [Schema builder](./schema_builder.md) that you can use to construct SQL DDL queries.
 
 ```ts
 import { BaseSchema } from '@adonisjs/lucid/schema'
