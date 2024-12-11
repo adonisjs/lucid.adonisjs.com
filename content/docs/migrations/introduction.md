@@ -362,7 +362,7 @@ import router from '@adonisjs/core/services/router'
 import { MigrationRunner } from '@adonisjs/lucid/migration'
 
 router.get('/', async () => {
-  const migrator = new MigrationRunner(Database, Application, {
+  const migrator = new MigrationRunner(db, app, {
     direction: 'up',
     dryRun: false,
     // connectionName: 'pg',
