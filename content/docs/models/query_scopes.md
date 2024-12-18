@@ -64,16 +64,27 @@ Project.query().withScopes((scopes) => scopes.visibleTo(auth.user))
 
 ## Calling scopes within the scopes
 
-Since the scope method receives an instance of the [Model query builder](./query_builder.md), you can also reference other model scopes within the scope callback. For example:
+Since the scope method receives an instance of the [Model query builder](./query_builder.md), you can reference other model scopes within the scope callback.
+
+However, the scope method is static so it is not aware of the model in which it is used (a TypeScript limitation). Consequently, it cannot infer the Query builder type for the model.
+
+Therefore, we need to create a `Builder` type as follows:
 
 ```ts
-import { scope, column, BaseModel } from '@adonisjs/lucid/orm'
 import { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
 
+// highlight-start
 type Builder = ModelQueryBuilderContract<typeof Post>
+// highlight-end
+```
 
+Then, you can hint the `builder` property as follow:
+
+```ts
 export default class Post extends BaseModel {
+  // highlight-start
   static firstScope = scope((query: Builder) => {
+  // highlight-end
     query.withScopes((scopes) => scopes.secondScope())
   })
 
@@ -83,23 +94,21 @@ export default class Post extends BaseModel {
 }
 ```
 
-:::tip
-
-**Noticed the `Builder` type we created above?**
-
-The `scope` method is not aware of the Model it is used inside (a TypeScript limitation) and hence it cannot infer the Query builder type for the model as well. Therefore, we need to type hint the `builder` property as follow:
+If you also want to pass arguments, you need to cast the `query` within the method:
 
 ```ts
-// highlight-start
-type Builder = ModelQueryBuilderContract<typeof Post>
-// highlight-end
+export default class Post extends BaseModel {
+  static firstScope = scope((scopeQuery, user: User) => {
+    // highlight-start
+    const query = scopeQuery as Builder
+    // highlight-end
+    query
+      .withScopes((scopes) => scopes.secondScope())
+      .where('teamId', user.teamId)
+  })
 
-public static firstScope = scope(
-  // highlight-start
-  (query: Builder) => {
-  // highlight-end
-  }
-)
+  static secondScope = scope((query) => {
+    query.whereNull('deletedAt')
+  })
+}
 ```
-
-:::
