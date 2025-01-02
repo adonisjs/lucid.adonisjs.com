@@ -41,7 +41,7 @@ import { HttpContext } from '@adonisjs/core/http'
 import db from '@adonisjs/lucid/services/db'
 
 class PostsController {
-  async index({ request, view }: HttpContextContract) {
+  async index({ request, view }: HttpContext) {
     const page = request.input('page', 1)
     const limit = 10
 
