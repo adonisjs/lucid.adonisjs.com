@@ -170,6 +170,21 @@ await db.transaction(async (trx) => {
 // highlight-end
 ```
 
+It is possible to give the transaction as a customer, here is a simple example.
+
+```ts
+import User from '#models/user'
+import db from '@adonisjs/lucid/services/db'
+
+// highlight-start
+await db.transaction(async (trx) => {
+  const user = await User.create({ 
+    username: 'virk' 
+  }, { client: trx })
+})
+// highlight-end
+```
+
 ### Model query builder
 
 Just like the standard query builder, you can also pass the transaction to the model query builder.
