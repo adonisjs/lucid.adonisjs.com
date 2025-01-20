@@ -170,7 +170,7 @@ await db.transaction(async (trx) => {
 // highlight-end
 ```
 
-It is possible to give the transaction as a customer, here is a simple example.
+Instead of instantiating your entity using the `new` keyword, you can give the transaction in the client as a parameter.
 
 ```ts
 import User from '#models/user'
