@@ -149,3 +149,25 @@ posts.namingStrategy = {
 
 return posts.toJSON()
 ```
+
+You can also assign a custom naming strategy to the `SimplePaginator` class constructor to override it globally inside a [service provider](https://docs.adonisjs.com/guides/concepts/service-providers#ready)
+
+```ts
+import { SimplePaginator } from '@adonisjs/lucid/database'
+import type { ApplicationService } from '@adonisjs/core/types'
+
+export default class AppProvider {
+  constructor(protected app: ApplicationService) {}
+
+  async ready() {
+    // highlight-start
+    SimplePaginator.namingStrategy = {
+      paginationMetaKeys() {
+        return {
+          // ... same as above
+        }
+      },
+    }
+    // highlight-end
+  }
+}

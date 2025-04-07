@@ -1468,6 +1468,8 @@ const user = await db
 ## Pagination
 The query builder has first-class support for offset-based pagination. It also automatically counts the number of total rows by running a separate query behind the scenes.
 
+See also: [Pagination](../guides/pagination.md)
+
 ```ts
 const page = request.input('page', 1)
 const limit = 20
@@ -1477,7 +1479,7 @@ const results = await db
   .paginate(page, limit)
 ```
 
-The `paginate` method returns an instance of the [SimplePaginator](https://github.com/adonisjs/lucid/blob/efed38908680cca3b288d9b2a123586fab155b1d/src/Database/Paginator/SimplePaginator.ts#L20) class. The class has the following properties and methods.
+The `paginate` method returns an instance of the [SimplePaginator](https://github.com/adonisjs/lucid/blob/21.x/src/database/paginator/simple_paginator.ts) class. The class has the following properties and methods.
 
 ### firstPage
 Returns the number for the first page. It is always `1`.
