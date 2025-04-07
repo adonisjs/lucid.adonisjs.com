@@ -197,9 +197,9 @@ class MyCustomNamingStrategy extends CamelCaseNamingStrategy {
 If you are paginating results using the `db` service directly, you must register the naming strategy with the `SimplePaginator` class.
 
 ```ts
-import db from '@adonisjs/lucid/services/db'
+import { SimplePaginator } from '@adonisjs/lucid/database'
 
-db.SimplePaginator.namingStrategy = new MyCustomNamingStrategy()
+SimplePaginator.namingStrategy = new MyCustomNamingStrategy()
 ```
 
 The above example will configure the naming strategy for the paginator globally. However, you can also define the naming strategy for a given `.paginate` method call.
