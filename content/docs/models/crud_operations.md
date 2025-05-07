@@ -230,6 +230,26 @@ await User.firstOrCreate(
 )
 ```
 
+### firstOrNew
+
+It works like `firstOrCreate` but if the record is not found, a new one is instantiated but not persisted: you then have to call the `save()` method to write data to the database.
+
+```ts
+import User from '#models/user'
+
+// User.firstOrNew(searchPayload, savePayload)
+const usert = await User.firstOrNew(
+  { email: 'virk@adonisjs.com' },
+  { password: 'secret' }
+)
+
+user.$isPersisted
+// False
+
+await user.save()
+// Record is saved
+```
+
 ### fetchOrCreateMany
 
 The `fetchOrCreateMany` is similar to the `firstOrCreate` method, but instead, you can create more than one row. The method needs a unique key for finding the duplicate rows and an array of objects to persist (if missing inside the database).
