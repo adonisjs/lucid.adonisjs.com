@@ -246,7 +246,7 @@ const usert = await User.firstOrNew(
 user.$isPersisted
 // False
 
-user.save()
+await user.save()
 // Record is saved
 ```
 
