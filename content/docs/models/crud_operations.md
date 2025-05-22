@@ -123,7 +123,7 @@ const [user2, user1] = await User.findMany([2, 1])
 // SQL: SELECT * FROM "users" WHERE "id" IN (?, ?) ORDER BY "id" DESC [ 2, 1 ]
 ```
 
-The value for `user2` would actually be the model with `id=1`, not `id=2`
+The value for `user2` would actually be the model with `id = 1`, not `id = 2`.
 
 ### findManyBy
 
