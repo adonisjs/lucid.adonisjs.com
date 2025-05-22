@@ -101,6 +101,30 @@ const user = await User.findBy('email', 'virk@adonisjs.com')
 // SQL: SELECT * from "users" WHERE "email" = 'virk@adonisjs.com' LIMIT 1;
 ```
 
+### findMany
+
+Find mutliple records using the primary key. This method returns an array of model instance or an empty array (`[]`).
+
+```ts
+const users = await User.findMany([1, 2])
+// SQL: SELECT * FROM "users" WHERE "id" IN (?, ?) ORDER BY "id" DESC [ 1, 2 ]
+```
+
+:::warning
+
+The order of the array of results does not necessarily match the order of the query, instead they are ordered by the primary key.
+
+:::
+
+So the following would yield incorrect results:
+
+```ts
+const [user2, user1] = await User.findMany([2, 1])
+// SQL: SELECT * FROM "users" WHERE "id" IN (?, ?) ORDER BY "id" DESC [ 2, 1 ]
+```
+
+The value for `user2` would actually be the model with `id=1`, not `id=2`
+
 ### findManyBy
 
 Find multiple record by one or multiple column name and its value. This method returns an array of model instance or an empty array (`[]`).
