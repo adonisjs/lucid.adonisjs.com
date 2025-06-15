@@ -24,7 +24,7 @@ The active record pattern advocates encapsulating the database interactions to l
 
 The data models clean up many database interactions since you can encode most of the behavior inside your models vs. writing it everywhere inside your codebase.
 
-For example, Your `users` table has a date field, and you want to format that before sending it back to the client. **This is how your code may look like without using data models**.
+For example, your `users` table has a date field, and you want to format that before sending it back to the client. **This is how your code may look like without using data models**.
 
 ```ts
 import { DateTime } from 'luxon'
