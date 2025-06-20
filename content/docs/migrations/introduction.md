@@ -106,7 +106,7 @@ node ace migration:rollback --batch=0
 node ace migration:rollback --batch=1
 ```
 
-The `migration:reset` command is basically an alias for `migration:rollback --batch=0`. This will rollback all of your application's migrations :
+The `migration:reset` command is basically an alias for `migration:rollback --batch=0`. This will rollback all of your application's migrations:
 
 ```sh
 node ace migration:reset
