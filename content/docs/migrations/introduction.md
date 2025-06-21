@@ -431,7 +431,7 @@ Returns the current `status` of the migrator. It will always be one of the follo
 
 ## Migrations config
 
-The `migration` object defined on every database connection is used to configuration the migration system of Lucid. Following is the list of available options.
+The `migration` object defined on every database connection is used to configure the migration system of Lucid. Following is the list of available options.
 
 ```ts
 {
