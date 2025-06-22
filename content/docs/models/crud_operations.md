@@ -103,7 +103,7 @@ const user = await User.findBy('email', 'virk@adonisjs.com')
 
 ### findMany
 
-Find mutliple records using the primary key. This method returns an array of model instance or an empty array (`[]`).
+Find multiple records using the primary key. This method returns an array of model instance or an empty array (`[]`).
 
 ```ts
 const users = await User.findMany([1, 2])
