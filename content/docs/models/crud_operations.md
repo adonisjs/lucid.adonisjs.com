@@ -262,7 +262,7 @@ It works like `firstOrCreate` but if the record is not found, a new one is insta
 import User from '#models/user'
 
 // User.firstOrNew(searchPayload, savePayload)
-const usert = await User.firstOrNew(
+const user = await User.firstOrNew(
   { email: 'virk@adonisjs.com' },
   { password: 'secret' }
 )
