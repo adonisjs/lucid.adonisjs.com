@@ -111,7 +111,7 @@ export default class CountrySeeder extends BaseSeeder {
       },
       {
         isoCode: 'TH',
-        name: ' Thailand',
+        name: 'Thailand',
       },
     ])
   }
