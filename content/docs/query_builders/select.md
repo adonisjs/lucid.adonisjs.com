@@ -1551,7 +1551,7 @@ result.getUrl(1) // /?page=1
 ```
 
 ### getNextPageUrl
-Returns the URL for the next page
+Returns the URL for the next page.
 
 ```ts
 // Assuming the current page is 2
@@ -1560,7 +1560,7 @@ result.getNextPageUrl() // /?page=3
 ```
 
 ### getPreviousPageUrl
-Returns the URL for the previous page
+Returns the URL for the previous page.
 
 ```ts
 // Assuming the current page is 2
