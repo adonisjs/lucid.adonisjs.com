@@ -47,7 +47,7 @@ db.rawQuery(
 )
 ```
 
-You need to use also append the colon `:` after the placeholder when using a dynamic column name.
+You also need to append the colon `:` after the placeholder when using a dynamic column name.
 
 ```ts
 db.rawQuery(
