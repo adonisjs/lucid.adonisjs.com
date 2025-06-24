@@ -1,6 +1,6 @@
 # Raw query builder
 
-The raw query builder allows you execute queries from a SQL string. Even though you are directly executing raw SQL strings, you can still keep your queries safe from SQL injection by using placeholders for values.
+The raw query builder allows you to execute queries from a SQL string. Even though you are directly executing raw SQL strings, you can still keep your queries safe from SQL injection by using placeholders for values.
 
 :::note
 When executing raw queries, the results from the underlying driver are return as it is.
