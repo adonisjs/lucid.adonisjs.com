@@ -170,6 +170,21 @@ await db.transaction(async (trx) => {
 // highlight-end
 ```
 
+Instead of instantiating your entity using the `new` keyword, you can give the transaction in the client as a parameter.
+
+```ts
+import User from '#models/user'
+import db from '@adonisjs/lucid/services/db'
+
+// highlight-start
+await db.transaction(async (trx) => {
+  const user = await User.create({ 
+    username: 'virk' 
+  }, { client: trx })
+})
+// highlight-end
+```
+
 ### Model query builder
 
 Just like the standard query builder, you can also pass the transaction to the model query builder.
