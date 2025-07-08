@@ -67,7 +67,7 @@ const schema = vine.object({
   email: vine
     .string()
     // highlight-start
-    .unique((_, value) => {
+    .unique(async (_, value) => {
       const row = await User.findBy('email', value)
       return row ? false : true
     }),
@@ -94,7 +94,7 @@ const schema = vine.object({
   slug: vine
     .string()
     // highlight-start
-    .exists((db, value) => {
+    .exists(async (db, value) => {
       const row = await db.from('categories').where('slug', value).first()
       return row ? true : false
     }),
