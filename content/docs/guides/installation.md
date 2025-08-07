@@ -199,6 +199,56 @@ const dbConfig = defineConfig({
 })
 ```
 
+## Connection pooling
+
+[Connection pooling](https://en.wikipedia.org/wiki/Connection_pool) is a standard practice of maintaining minimum and maximum connections with the database server.
+
+The **minimum connections** are maintained for improving the application performance. Since establishing a new connection is an expensive operation, it is always recommended to have a couple of connections ready to execute the database queries.
+
+The **maximum connections** are defined to ensure that your application doesn't overwhelm the database server with too many concurrent connections.
+
+Lucid will queue new queries when the pool is full and waits for the pool to have free resources until the configured timeout. The default timeout is set to **60 seconds** and can be configured using the `pool.acquireTimeoutMillis` property.
+
+```ts
+{
+  postgres: {
+    client: 'pg',
+    connection: {},
+    // highlight-start
+    pool: {
+      acquireTimeoutMillis: 60 * 1000,
+    }
+    // highlight-end
+  }
+}
+```
+
+:::tip
+
+Bigger the pool size, the better the performance is a misconception. We recommend you read this [document](https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing) to understand how the smaller pool size can boost the application performance.
+
+:::
+
+You can configure the pool settings for a given connection inside the `config/database.ts` file.
+
+```ts
+{
+  connections: {
+    postgres: {
+      client: 'pg',
+      connection: {
+      },
+      // highlight-start
+      pool: {
+        min: 2,
+        max: 20,
+      },
+      // highlight-end
+    },
+  }
+}
+```
+
 ## Basic usage
 
 Once you have configured Lucid, you can start using the Database query builder to create and execute SQL queries. In the following code examples, we perform CRUD operations on the `posts` table.
