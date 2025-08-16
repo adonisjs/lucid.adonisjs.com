@@ -156,13 +156,15 @@ The configuration for seeders is stored inside the `config/database.ts` file und
 #### paths
 
 Define the paths for loading the database seeder files. You can also define a path to an installed package.
+And you can define naturalSort, which sorts the seeders in a natural order (e.g., `1`, `2`, `10` instead of `1`, `10`, `2`).
 
 ```ts
 {
   mysql: {
     client: 'mysql2',
     seeders: {
-      paths: ['./database/seeders', '@somepackage/seeders-dir']
+      paths: ['./database/seeders', '@somepackage/seeders-dir'],
+      naturalSort: true, // Optional, defaults to false
     }
   }
 }
