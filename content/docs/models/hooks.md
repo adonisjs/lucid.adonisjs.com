@@ -85,6 +85,22 @@ class User extends BaseModel {
 }
 ```
 
+### afterSave
+The `afterSave` decorator registers a given function as a after hook invoked after the **insert** and the **update** query.
+
+```ts
+import { BaseModel, afterSave } from '@adonisjs/lucid/orm'
+
+class Project extends BaseModel {
+  @afterSave()
+  static async syncProjectsToAlgolia(project: Project) {
+    const syncService = await app.container.make(AlgoliaSyncService);
+
+    await syncService.syncProject(project);
+  }
+}
+```
+
 ### beforeCreate
 The `beforeCreate` decorator registers the function to be invoked just before the insert operation.
 
