@@ -134,7 +134,7 @@ this.schema.createTable('products', (table) => {
 
 Adds a decimal column, with **optional precision (defaults to 8)** and **scale (defaults to 2)**.
 
-Specifying `null` as precision creates a decimal column that can store numbers of precision and scale. (Only supported for Oracle, SQLite, Postgres)
+Specifying `null` as precision creates a decimal column that can store numbers of any precision and scale. (Only supported for Oracle, SQLite, Postgres)
 
 ```ts
 this.schema.createTable('products', (table) => {
