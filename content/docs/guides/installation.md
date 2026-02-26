@@ -144,6 +144,177 @@ The value of the `connection` property is same as the [configuration object](htt
 
 </dl>
 
+### SQLite
+
+SQLite stores your database in a single file, making it ideal for development and testing. Install the SQLite driver if not already installed:
+
+```bash
+npm install better-sqlite3
+
+# Directory in which the database file is kept by default
+mkdir tmp
+```
+
+Configure your SQLite connection in `config/database.ts`.
+
+```typescript
+// title: config/database.ts
+import env from '#start/env'
+import { defineConfig } from '@adonisjs/lucid'
+
+const dbConfig = defineConfig({
+  connection: 'sqlite',
+  connections: {
+    sqlite: {
+      client: 'better-sqlite3',
+      connection: {
+        filename: env.get('DB_DATABASE', 'tmp/dev.sqlite3')
+      },
+      useNullAsDefault: true,
+      migrations: {
+        naturalSort: true,
+        paths: ['database/migrations']
+      }
+    }
+  }
+})
+
+export default dbConfig
+```
+
+The `filename` specifies where SQLite stores your database file. Use `useNullAsDefault: true` to prevent Knex warnings about default values.
+
+### MySQL
+
+MySQL requires the mysql2 driver. Install it if not already present:
+
+```bash
+npm install mysql2
+```
+
+Configure your MySQL connection.
+
+```typescript
+// title: config/database.ts
+import env from '#start/env'
+import { defineConfig } from '@adonisjs/lucid'
+
+const dbConfig = defineConfig({
+  connection: 'mysql',
+  connections: {
+    mysql: {
+      client: 'mysql2',
+      connection: {
+        host: env.get('DB_HOST'),
+        port: env.get('DB_PORT'),
+        user: env.get('DB_USER'),
+        password: env.get('DB_PASSWORD'),
+        database: env.get('DB_DATABASE')
+      },
+      migrations: {
+        naturalSort: true,
+        paths: ['database/migrations']
+      }
+    }
+  }
+})
+
+export default dbConfig
+```
+
+Store your credentials in `.env`.
+
+```bash
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=secret
+DB_DATABASE=myapp
+```
+
+### PostgreSQL
+
+PostgreSQL requires the pg driver.
+
+```bash
+npm install pg
+```
+
+Configure your PostgreSQL connection.
+
+```typescript
+// title: config/database.ts
+import env from '#start/env'
+import { defineConfig } from '@adonisjs/lucid'
+
+const dbConfig = defineConfig({
+  connection: 'postgres',
+  connections: {
+    postgres: {
+      client: 'pg',
+      connection: {
+        host: env.get('DB_HOST'),
+        port: env.get('DB_PORT'),
+        user: env.get('DB_USER'),
+        password: env.get('DB_PASSWORD'),
+        database: env.get('DB_DATABASE')
+      },
+      migrations: {
+        naturalSort: true,
+        paths: ['database/migrations']
+      }
+    }
+  }
+})
+
+export default dbConfig
+```
+
+PostgreSQL environment variables are the same as MySQL. PostgreSQL defaults to port 5432.
+
+## Connection strings
+
+Instead of individual connection properties, you can use connection strings. Connection strings are URL-formatted strings containing all connection details.
+
+```typescript
+// title: config/database.ts
+import env from '#start/env'
+import { defineConfig } from '@adonisjs/lucid'
+
+const dbConfig = defineConfig({
+  connection: 'postgres',
+  connections: {
+    postgres: {
+      client: 'pg',
+      // highlight-start
+      connection: env.get('DATABASE_URL'),
+      // highlight-end
+      migrations: {
+        naturalSort: true,
+        paths: ['database/migrations']
+      }
+    }
+  }
+})
+
+export default dbConfig
+```
+
+Store the connection string in `.env`.
+
+```bash
+# PostgreSQL
+DATABASE_URL=postgres://username:password@localhost:5432/database_name
+
+# MySQL
+DATABASE_URL=mysql://username:password@localhost:3306/database_name
+
+# SQLite (file path)
+DATABASE_URL=sqlite://./tmp/dev.sqlite3
+```
+
+Connection strings are particularly useful in production environments where hosting providers supply database credentials as a single URL.
+
 ## Configuring read-write replicas
 
 Lucid supports read-write replicas as a first-class citizen. You may configure one write database server, along with multiple read servers. All read queries are sent to the read servers in round-robin fashion, and write queries are sent to the write server.

@@ -13,7 +13,7 @@ The model query builder always returns an array of models instances and not plai
 Also, the model query builder is aware of the model and its relationships and hence provides an easy to use API to work with relationships.
 
 ```ts
-class User extends BaseModel {}
+class User extends UserSchema {}
 
 // Returns model query builder instance
 User.query()
@@ -170,11 +170,10 @@ The `withScopes` method allows you to leverage the query scopes defined on the m
 Begin by defining a query scope.
 
 ```ts
-import { BaseSchema } from '@adonisjs/lucid/schema'
 import { scope } from '@adonisjs/lucid/orm'
+import { TeamSchema } from '#database/schema'
 
-export default class Team extends BaseModel {
-
+export default class Team extends TeamSchema {
   public static forUser = scope((query, user: User) => {
     const subQuery = Database
       .from('user_teams')

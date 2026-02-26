@@ -11,16 +11,16 @@ The methods are defined as static properties on the model class and receive the 
 ```ts
 // title: app/models/post.ts
 import { DateTime } from 'luxon'
+import { PostSchema } from '#database/schema'
 
 import {
   // highlight-start
   scope,
   // highlight-end
   column,
-  BaseModel,
 } from '@adonisjs/lucid/orm'
 
-export default class Post extends BaseModel {
+export default class Post extends PostSchema {
   static published = scope((query) => {
     query.where('publishedOn', '<=', DateTime.utc().toSQLDate())
   })
@@ -40,9 +40,10 @@ The query scopes can also accept arguments. For example: Creating a scope that a
 ```ts
 import { DateTime } from 'luxon'
 import User from '#models/user'
-import { BaseModel, column, scope } from '@adonisjs/lucid/orm'
+import { ProjectSchema } from '#database/schema'
+import { column, scope } from '@adonisjs/lucid/orm'
 
-export default class Project extends BaseModel {
+export default class Project extends ProjectSchema {
   static visibleTo = scope((query, user: User) => {
     if (user.isAdmin) {
       return
@@ -81,7 +82,7 @@ type Builder = ModelQueryBuilderContract<typeof Post>
 Then, you can hint the `builder` property as follow:
 
 ```ts
-export default class Post extends BaseModel {
+export default class Post extends PostSchema {
   // highlight-start
   static firstScope = scope((query: Builder) => {
   // highlight-end
@@ -97,7 +98,7 @@ export default class Post extends BaseModel {
 If you also want to pass arguments, you need to cast the `query` within the method:
 
 ```ts
-export default class Post extends BaseModel {
+export default class Post extends PostSchema {
   static firstScope = scope((scopeQuery, user: User) => {
     // highlight-start
     const query = scopeQuery as Builder

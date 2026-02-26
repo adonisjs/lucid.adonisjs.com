@@ -6,21 +6,13 @@ A great example of hooks is password hashing. You can define a hook that runs be
 
 ```ts
 // title: app/models/user.ts
+import { UserSchema } from '#database/schema'
 // highlight-start
 import hash from '@adonisjs/core/services/hash'
+import { beforeSave } from '@adonisjs/lucid/orm'
 // highlight-end
-import { column, beforeSave, BaseModel } from '@adonisjs/lucid/orm'
 
-export default class User extends BaseModel {
-  @column({ isPrimary: true })
-  declare id: number
-
-  @column()
-  declare email: string
-
-  @column()
-  declare password: string
-
+export default class User extends UserSchema {
   // highlight-start
   @beforeSave()
   static async hashPassword(user: User) {
@@ -73,9 +65,10 @@ Following is the list of all the available hooks.
 The `beforeSave` decorator registers a given function as a before hook invoked before the **insert** and the **update** query.
 
 ```ts
-import { BaseModel, beforeSave } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { beforeSave } from '@adonisjs/lucid/orm'
 
-class User extends BaseModel {
+export default class User extends UserSchema {
   @beforeSave()
   static async hashPassword(user: User) {
     if (user.$dirty.password) {
@@ -89,9 +82,10 @@ class User extends BaseModel {
 The `afterSave` decorator registers a given function as a after hook invoked after the **insert** and the **update** query.
 
 ```ts
-import { BaseModel, afterSave } from '@adonisjs/lucid/orm'
+import { ProjectSchema } from '#database/schema'
+import { afterSave } from '@adonisjs/lucid/orm'
 
-class Project extends BaseModel {
+class Project extends ProjectSchema {
   @afterSave()
   static async syncProjectsToAlgolia(project: Project) {
     const syncService = await app.container.make(AlgoliaSyncService);
@@ -105,9 +99,10 @@ class Project extends BaseModel {
 The `beforeCreate` decorator registers the function to be invoked just before the insert operation.
 
 ```ts
-import { BaseModel, beforeCreate } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { beforeCreate } from '@adonisjs/lucid/orm'
 
-class User extends BaseModel {
+class User extends UserSchema {
   @beforeCreate()
   static assignAvatar(user: User) {
     user.avatarUrl = getRandomAvatar()
@@ -119,9 +114,10 @@ class User extends BaseModel {
 The `beforeUpdate` decorator registers the function to be invoked just before the update operation.
 
 ```ts
-import { BaseModel, beforeUpdate } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { beforeUpdate } from '@adonisjs/lucid/orm'
 
-class User extends BaseModel {
+class User extends UserSchema {
   @beforeUpdate()
   static async assignAvatar(user: User) {
     user.avatarUrl = getRandomAvatar()
@@ -133,9 +129,10 @@ class User extends BaseModel {
 The `beforeDelete` decorator registers the function to be invoked just before the delete operation.
 
 ```ts
-import { BaseModel, beforeDelete } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { beforeDelete } from '@adonisjs/lucid/orm'
 
-class Post extends BaseModel {
+class User extends UserSchema {
   @beforeDelete()
   static async removeFromCache(post: Post) {
     await Cache.remove(`post-${post.id}`)
@@ -154,10 +151,11 @@ Find operations are one's that intentionally selects a single database row. For 
 - `Model.first()`
 
 ```ts
-import { BaseModel, beforeFind } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { beforeFind } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   @beforeFind()
   static ignoreDeleted(query: ModelQueryBuilderContract<typeof User>) {
     query.whereNull('is_deleted')
@@ -170,9 +168,10 @@ export default class User extends BaseModel {
 The `afterFind` event receives the model instance.
 
 ```ts
-import { BaseModel, afterFind } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { afterFind } from '@adonisjs/lucid/orm'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   @afterFind()
   static afterFindHook(user: User) {}
 }
@@ -183,10 +182,11 @@ export default class User extends BaseModel {
 Similar to `beforeFind`, the `beforeFetch` hook also receives the query builder instance. However, this hook is invoked whenever a query is executed without using the `first` method.
 
 ```ts
-import { BaseModel, beforeFetch } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { beforeFetch } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   @beforeFetch()
   static ignoreDeleted(query: ModelQueryBuilderContract<typeof User>) {
     query.whereNull('is_deleted')
@@ -199,9 +199,10 @@ export default class User extends BaseModel {
 The `afterFetch` hook receives an array of model instances.
 
 ```ts
-import { BaseModel, afterFetch } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { afterFetch } from '@adonisjs/lucid/orm'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   @afterFetch()
   static afterFetchHook(users: User[]) {}
 }
@@ -214,10 +215,11 @@ The `beforePaginate` query is executed when you make use of the `paginate` metho
 The hook function receives an array of query builders. The first instance is for the count's query, and the second is for the main query.
 
 ```ts
-import { BaseModel, beforePaginate } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { beforePaginate } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   @beforePaginate()
   static ignoreDeleted([countQuery, query]: [
     ModelQueryBuilderContract<typeof User>,
@@ -234,10 +236,11 @@ export default class User extends BaseModel {
 The `afterPaginate` hook receives an instance of the [SimplePaginator](https://github.com/adonisjs/lucid/blob/efed38908680cca3b288d9b2a123586fab155b1d/src/Database/Paginator/SimplePaginator.ts#L20) class. The `paginate` method fires both the `afterFetch` and the `afterPaginate` hooks.
 
 ```ts
-import { BaseModel, beforePaginate } from '@adonisjs/lucid/orm'
+import { UserSchema } from '#database/schema'
+import { beforePaginate } from '@adonisjs/lucid/orm'
 import type { SimplePaginatorContract } from '@adonisjs/lucid/types/querybuilder'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   @afterPaginate()
   static afterPaginateHook(users: SimplePaginatorContract<User>) {}
 }

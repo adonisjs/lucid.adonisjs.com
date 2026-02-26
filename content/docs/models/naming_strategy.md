@@ -19,7 +19,7 @@ class MyCustomNamingStrategy extends CamelCaseNamingStrategy {
 Assign it to a model
 
 ```ts
-class User extends BaseModel {
+class User extends UserSchema {
   public static namingStrategy = new MyCustomNamingStrategy()
 }
 ```

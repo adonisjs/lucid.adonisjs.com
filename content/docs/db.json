@@ -84,6 +84,12 @@
     "category": "Models"
   },
   {
+    "permalink": "schema-classes",
+    "title": "Schema classes",
+    "contentPath": "./models/schema_classes.md",
+    "category": "Models"
+  },
+  {
     "permalink": "crud-operations",
     "title": "CRUD operations",
     "contentPath": "./models/crud_operations.md",

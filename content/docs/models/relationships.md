@@ -63,10 +63,11 @@ The has one relationship is defined using the [@hasOne](https://github.com/adoni
 
 ```ts
 import Profile from '#models/profile'
+import { UserSchema } from '#database/schema'
+import { hasOne } from '@adonisjs/lucid/orm'
 import type { HasOne } from '@adonisjs/lucid/types/relations'
-import { column, BaseModel, hasOne } from '@adonisjs/lucid/orm'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   // highlight-start
   @hasOne(() => Profile)
   declare profile: HasOne<typeof Profile>
@@ -159,13 +160,14 @@ The has many relationship is defined using the [@hasMany](https://github.com/ado
 
 ```ts
 import Post from '#models/post'
+import { UserSchema } from '#database/schema'
+import { hasMany } from '@adonisjs/lucid/orm'
 import type { HasMany } from '@adonisjs/lucid/types/relations'
-import { column, BaseModel, hasMany } from '@adonisjs/lucid/orm'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   // highlight-start
   @hasMany(() => Post)
- declare posts: HasMany<typeof Post>
+  declare posts: HasMany<typeof Post>
   // highlight-end
 }
 ```
@@ -204,14 +206,11 @@ The belongs to relationship is defined using the [@belongsTo](https://github.com
 
 ```ts
 import User from '#models/user'
+import { UserSchema } from '#database/schema'
+import { belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import { column, BaseModel, belongsTo } from '@adonisjs/lucid/orm'
 
-export default class Profile extends BaseModel {
-  // Foreign key is still on the same model
-  @column()
-  declare userId: number
-
+export default class Profile extends UserSchema {
   // highlight-start
   @belongsTo(() => User)
   declare user: BelongsTo<typeof User>
@@ -309,13 +308,11 @@ There is no need to create a model for the pivot table.
 
 ```ts
 import Skill from '#models/skill'
+import { UserSchema } from '#database/schema'
+import { manyToMany } from '@adonisjs/lucid/orm'
 import type { ManyToMany } from '@adonisjs/lucid/types/relations'
-import { column, BaseModel, manyToMany } from '@adonisjs/lucid/orm'
 
-export default class User extends BaseModel {
-  @column({ isPrimary: true })
-  declare id: number
-
+export default class User extends UserSchema {
   // highlight-start
   @manyToMany(() => Skill)
   declare skills: ManyToMany<typeof Skill>
@@ -494,13 +491,11 @@ The has many through relationship is defined using the [@hasManyThrough](https:/
 ```ts
 import Post from '#models/post'
 import User from '#models/user'
+import { CountrySchema } from '#database/schema'
+import {hasManyThrough } from '@adonisjs/lucid/orm'
 import type { HasManyThrough } from '@adonisjs/lucid/types/relations'
-import { column, BaseModel, hasManyThrough } from '@adonisjs/lucid/orm'
 
-export default class Country extends BaseModel {
-  @column({ isPrimary: true })
-  declare id: number
-
+export default class Country extends CountrySchema {
   // highlight-start
   @hasManyThrough([() => Post, () => User])
   declare posts: HasManyThrough<typeof Post>
@@ -779,10 +774,11 @@ The `onQuery` method is usually helpful when you always apply certain constraint
 
 ```ts
 import UserEmail from '#models/user_email'
+import { UserSchema } from '#database/schema'
+import { hasMany } from '@adonisjs/lucid/orm'
 import type { HasMany } from '@adonisjs/lucid/types/model'
-import { column, BaseModel, hasMany } from '@adonisjs/lucid/orm'
 
-export default class User extends BaseModel {
+export default class User extends UserSchema {
   @hasMany(() => UserEmail)
   declare emails: HasMany<typeof UserEmail>
 
