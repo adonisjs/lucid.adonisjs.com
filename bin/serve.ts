@@ -15,6 +15,7 @@ import { readFile } from 'node:fs/promises'
 import { defineConfig } from '@adonisjs/vite'
 import type { ApplicationService } from '@adonisjs/core/types'
 import { defineConfig as defineHttpConfig } from '@adonisjs/core/http'
+import { defineConfig as defineEncryptionConfig, drivers } from '@adonisjs/core/encryption'
 
 /**
  * URL to the application root. AdonisJS need it to resolve
@@ -77,9 +78,16 @@ new Ignitor(APP_ROOT, { importer: IMPORTER })
       app.useConfig({
         appUrl: process.env.APP_URL || '',
         app: {
-          appKey: 'zKXHe-Ahdb7aPK1ylAJlRgTefktEaACi',
           http: defineHttpConfig({}),
         },
+        encryption: defineEncryptionConfig({
+          default: 'legacy',
+          list: {
+            legacy: drivers.legacy({
+              keys: ['zKXHe-Ahdb7aPK1ylAJlRgTefktEaACi'],
+            }),
+          },
+        }),
         static: {
           enabled: true,
           etag: true,

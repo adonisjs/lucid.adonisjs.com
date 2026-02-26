@@ -1,0 +1,1 @@
+{"root":[{"domain":"root","pattern":"/*","matchers":{},"tokens":[{"old":"/*","type":2,"val":"*","end":""}],"meta":{"params":[]},"methods":["GET","HEAD"],"middleware":{}}]}
