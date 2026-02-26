@@ -70,13 +70,13 @@ export default class extends BaseSchema {
 
 ### Step 2: Run the migration
 
-Execute your migration using the Ace command:
+Execute your migration using the Ace command.
 
 ```bash
 node ace migration:run
 ```
 
-When the migration completes successfully, you'll see output confirming both the migration execution and schema generation:
+When the migration completes successfully, you'll see output confirming both the migration execution and schema generation.
 
 ```bash
 ❯ Executed 1703001234567_create_posts_table migration
@@ -84,6 +84,10 @@ When the migration completes successfully, you'll see output confirming both the
 ```
 
 Lucid automatically regenerates the `database/schema.ts` file after running migrations, ensuring your schema classes always match your database structure.
+
+:::note
+If you are not running migrations using AdonisJS, then you may run `node ace schema:generate` command to generate the schema classes.
+:::
 
 ### Step 3: Examine the generated schema class
 
