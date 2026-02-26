@@ -12,6 +12,7 @@
 import 'reflect-metadata'
 import { Ignitor } from '@adonisjs/core'
 import { defineConfig } from '@adonisjs/vite'
+import { defineConfig as defineEncryptionConfig, drivers } from '@adonisjs/core/encryption'
 
 /**
  * URL to the application root. AdonisJS need it to resolve
@@ -56,9 +57,16 @@ const application = new Ignitor(APP_ROOT, { importer: IMPORTER })
       app.useConfig({
         appUrl: process.env.APP_URL || '',
         app: {
-          appKey: 'zKXHe-Ahdb7aPK1ylAJlRgTefktEaACi',
           http: {},
         },
+        encryption: defineEncryptionConfig({
+          default: 'legacy',
+          list: {
+            legacy: drivers.legacy({
+              keys: ['zKXHe-Ahdb7aPK1ylAJlRgTefktEaACi'],
+            }),
+          },
+        }),
         logger: {
           default: 'app',
           loggers: {
