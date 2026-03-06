@@ -80,6 +80,135 @@ const rows = db
 console.log(rows[0].id, rows[0].username)
 ```
 
+### onConflict
+The `onConflict` method allows you to specify an alternative behavior when a unique constraint violation occurs during an insert. It is supported in **PostgreSQL**, **MySQL**, and **SQLite3** databases. You can chain it with `ignore` to silently discard the conflicting row, or `merge` to perform an upsert.
+
+You can call `onConflict` without arguments, with a single column, or with an array of columns.
+
+#### onConflict().ignore()
+Ignore the insert when a conflict occurs. This adds an `ON CONFLICT ... DO NOTHING` clause (or the equivalent for your database).
+
+```ts
+db
+  .table('users')
+  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
+  .onConflict('username')
+  .ignore()
+
+/**
+INSERT INTO "users" ("email", "username")
+VALUES ('virk@adonisjs.com', 'virk')
+ON CONFLICT ("username") DO NOTHING
+*/
+```
+
+You can also specify multiple columns:
+
+```ts
+db
+  .table('users')
+  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
+  .onConflict(['username', 'email'])
+  .ignore()
+```
+
+Or call `onConflict` without arguments to handle any conflict:
+
+```ts
+db
+  .table('users')
+  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
+  .onConflict()
+  .ignore()
+```
+
+#### onConflict().merge()
+Merge the conflicting row with the new values (upsert). This adds an `ON CONFLICT ... DO UPDATE SET` clause.
+
+When called without arguments, all inserted columns are updated:
+
+```ts
+db
+  .table('users')
+  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
+  .onConflict('username')
+  .merge()
+
+/**
+INSERT INTO "users" ("email", "username")
+VALUES ('virk@adonisjs.com', 'virk')
+ON CONFLICT ("username")
+DO UPDATE SET "email" = EXCLUDED."email", "username" = EXCLUDED."username"
+*/
+```
+
+You can specify a subset of columns to update on conflict:
+
+```ts
+db
+  .table('users')
+  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
+  .onConflict('username')
+  .merge(['email'])
+```
+
+Or provide an object of key-value pairs to set specific values on conflict:
+
+```ts
+db
+  .table('users')
+  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
+  .onConflict('username')
+  .merge({ email: 'updated@adonisjs.com' })
+```
+
+### with
+The `with` method allows you to use CTE (Common table expression) with insert queries in **PostgreSQL**, **Oracle**, **SQLite3** and the **MSSQL** databases.
+
+```ts
+import db from '@adonisjs/lucid/services/db'
+
+db
+  .table('users')
+  .with('active_users', db.raw('select * from users where is_active = ?', [true]))
+  .insert({ username: 'virk' })
+```
+
+### withMaterialized/withNotMaterialized
+The `withMaterialized` and the `withNotMaterialized` methods allow you to use CTE (Common table expression) as materialized views with insert queries in **PostgreSQL** and **SQLite3** databases.
+
+```ts
+db
+  .table('users')
+  .withMaterialized('active_users', db.raw('select * from users where is_active = 1'))
+  .insert({ username: 'virk' })
+```
+
+### withRecursive
+The `withRecursive` method creates a recursive CTE (Common table expression) for insert queries in **PostgreSQL**, **Oracle**, **SQLite3** and the **MSSQL** databases.
+
+```ts
+db
+  .table('users')
+  .withRecursive('tree', db.raw('select * from categories'))
+  .insert({ username: 'virk' })
+```
+
+### comment
+The `comment` method adds an SQL comment to the query. This can be helpful for identifying queries in database logs and monitoring tools.
+
+```ts
+db
+  .table('users')
+  .comment('bulk user insert')
+  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
+
+/**
+/* bulk user insert *​/ INSERT INTO "users" ("email", "username")
+VALUES ('virk@adonisjs.com', 'virk')
+*/
+```
+
 ### debug
 The `debug` method allows enabling or disabling debugging at an individual query level. Here's a [complete guide](../guides/debugging.md) on debugging queries.
 
