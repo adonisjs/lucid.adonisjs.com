@@ -161,6 +161,95 @@ You cannot simply roll back, edit the existing migration, and re-run it because 
 
 Instead, you should create a new migration file to alter the existing `users` table by adding the required column. In other words, migrations should always move forward.
 
+### Squash migrations using schema dumps
+
+As your application grows, the number of migration files can also grow significantly. Replaying the full migration history on every fresh database can become slow, especially during automated tests and local setup.
+
+You can squash older migrations into a schema dump using the `schema:dump` command.
+
+```sh
+node ace schema:dump
+```
+
+By default, Lucid stores the dump inside the `database/schema` directory using the active connection name.
+
+```txt
+database/schema/primary-schema.sql
+database/schema/primary-schema.meta.json
+```
+
+The `*.sql` file contains the structural database schema plus Lucid's migration bookkeeping tables. The `*.meta.json` file is stored next to the SQL dump and contains the list of migrations that were intentionally squashed into the baseline.
+
+Currently, schema dumps are supported for the following database drivers.
+
+- SQLite
+- MySQL
+- PostgreSQL
+
+Since Lucid uses the database native CLI tools to create and restore dumps, the required binaries must be installed on the machine where you run the commands.
+
+- SQLite: `sqlite3`
+- MySQL: `mysqldump` and `mysql`
+- PostgreSQL: `pg_dump` and `psql`
+
+Once a schema dump exists, `migration:run` will automatically restore it before running pending migrations when the target database has not executed any migrations yet.
+
+This means the high-level flow becomes:
+
+- Restore the stored schema dump.
+- Restore Lucid's migration bookkeeping tables.
+- Run only the migration files created after the dump.
+
+#### Prune old migration files
+
+You can remove older migration files after creating the dump using the `--prune` flag.
+
+```sh
+node ace schema:dump --prune
+```
+
+:::warning
+
+The `--prune` flag deletes the configured migration directories entirely. Therefore, every path inside `migrations.paths` must point to a dedicated migrations directory and should not contain any other files.
+
+:::
+
+After pruning:
+
+- `migration:status` marks intentionally removed migrations as `squashed`.
+- `migration:rollback` and `migration:reset` skip missing migrations that were squashed into the dump.
+- Missing migrations that are not part of the dump manifest are still treated as corrupt history.
+
+#### Custom dump path
+
+You can store the schema dump at a custom location using the `--path` flag.
+
+```sh
+node ace schema:dump --path=tmp/schema/baseline.sql
+```
+
+To restore a custom dump path later, pass the same path to `migration:run` or `migration:fresh`.
+
+```sh
+node ace migration:run --schema-path=tmp/schema/baseline.sql
+node ace migration:fresh --schema-path=tmp/schema/baseline.sql
+```
+
+#### Re-squashing migrations
+
+Schema dumps can be created multiple times over the lifetime of your application.
+
+For example:
+
+- You create and run some migrations.
+- You run `node ace schema:dump --prune`.
+- You create and run more migrations.
+- Later, you run `node ace schema:dump --prune` again.
+
+When you re-squash, Lucid creates a brand new baseline from the current database state and replaces the existing dump and manifest files. After that, only migrations created after the latest dump will run on a fresh database.
+
+As a best practice, always make sure your local database is up to date before creating a new schema dump.
+
 ## Create a table
 
 You can use the `schema.createTable` method to create a new database table. The method accepts the table name as the first argument and a callback function to define the table columns.
