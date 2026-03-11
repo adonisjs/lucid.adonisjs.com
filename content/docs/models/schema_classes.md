@@ -516,6 +516,58 @@ if (post.publishedOn > DateTime.now()) {
 }
 ```
 
+### Primary keys
+
+Lucid automatically detects primary key columns from your database. When generating schema classes, it queries each table for its primary key and applies the `@column({ isPrimary: true })` decorator to the corresponding column.
+
+This means you are not limited to using `id` as your primary key. Any column defined as the primary key in your migration will be detected and marked correctly in the generated schema class.
+
+```ts
+// title: database/migrations/xxxx_create_oauth_states_table.ts
+import { BaseSchema } from '@adonisjs/lucid/schema'
+
+export default class extends BaseSchema {
+  protected tableName = 'oauth_states'
+
+  async up() {
+    this.schema.createTable(this.tableName, (table) => {
+      /**
+       * Using a string column as the primary key instead of
+       * the conventional auto-incrementing id column.
+       */
+      table.string('key').notNullable().primary()
+      table.text('value').notNullable()
+      table.timestamp('updated_at')
+    })
+  }
+
+  async down() {
+    this.schema.dropTable(this.tableName)
+  }
+}
+```
+
+The generated schema class will correctly identify `key` as the primary key:
+
+```ts
+// title: database/schema.ts
+export class OauthStateSchema extends BaseModel {
+  static $columns = ['key', 'updatedAt', 'value'] as const
+  $columns = OauthStateSchema.$columns
+
+  @column({ isPrimary: true })
+  declare key: string
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+
+  @column()
+  declare value: string
+}
+```
+
+Lucid models support only a single primary key. If your table has a composite primary key, Lucid will use the first column from the composite key.
+
 ## Customizing types with schema rules
 
 Schema rules allow you to customize how Lucid generates schema classes. You define rules in the `database/schema_rules.ts` file, which Lucid reads during schema generation. Rules can target specific internal types globally, specific tables, or individual columns within tables.
@@ -709,6 +761,82 @@ With these rules:
 - All JSON columns will use `JSON<any>` except `posts.metadata`
 - The `posts.metadata` column will use the specific type shape defined in the table rule
 - All bigint columns will use TypeScript `bigint` across all tables
+
+### Customizing primary key detection
+
+By default, Lucid queries the database for primary key columns and applies `@column({ isPrimary: true })` with the appropriate TypeScript type. You can customize this behavior using the `primaryKey` function in your schema rules.
+
+The `primaryKey` function receives the table name, an array of primary key column names (as detected from the database), and the full columns metadata. It must return an object with the `columnName` to mark as primary and the `columnInfo` containing the decorator and type, or `undefined` to skip primary key handling for that table.
+
+The following example shows the default behavior that Lucid uses when no custom `primaryKey` rule is defined. The function picks the first primary key column and applies `@column({ isPrimary: true })` with the type inferred from the column's database type:
+
+```ts
+// title: database/schema_rules.ts
+import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
+
+export default {
+  types: {},
+  tables: {},
+
+  /**
+   * Customize how all primary keys are represented in
+   * the generated schema classes.
+   */
+  primaryKey: (tableName, primaryKeys, columns) => {
+    const columnName = primaryKeys[0]
+    if (!columnName || !columns[columnName]) {
+      return undefined
+    }
+
+    return {
+      columnName,
+      columnInfo: {
+        tsType: 'string',
+        decorator: '@column({ isPrimary: true })',
+        imports: [],
+      },
+    }
+  },
+} satisfies SchemaRules
+```
+
+You can also define `primaryKey` rules at the table level. Table-level rules take precedence over the global rule. This is useful when different tables need different primary key handling.
+
+```ts
+// title: database/schema_rules.ts
+import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
+
+export default {
+  types: {},
+  tables: {
+    oauth_states: {
+      /**
+       * Custom primary key handling for the oauth_states table only.
+       * The global primaryKey rule is used for all other tables.
+       */
+      primaryKey: (tableName, primaryKeys, columns) => {
+        const columnName = primaryKeys[0]
+        if (!columnName || !columns[columnName]) {
+          return undefined
+        }
+
+        return {
+          columnName,
+          columnInfo: {
+            tsType: 'string',
+            decorator: '@column({ isPrimary: true, serializeAs: null })',
+            imports: [],
+          },
+        }
+      },
+    },
+  },
+} satisfies SchemaRules
+```
+
+:::note
+If you define a column-specific rule (in the `columns` section) for a column that happens to be the primary key, the column rule takes precedence and the `primaryKey` rule is skipped for that column.
+:::
 
 ### When to regenerate schemas
 
