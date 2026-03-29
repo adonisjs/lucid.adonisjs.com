@@ -197,6 +197,17 @@ export default class User extends BaseModel {
 }
 ```
 
+The `consume` function also receives additional arguments that can be used when parsing the database results.
+
+```ts
+consume(value: string | null, attribute: string, model: LucidRow, adapterResult: ModelObject) => any
+```
+
+- `value`: the raw value from the database
+- `attribute` string name of the model attribute
+- `model` model instance object
+- `adapterResult` object containing the raw result of the select query from the database
+
 ### Date columns
 
 Lucid further enhances the date and the date-time properties and converts the database driver values to an instance of [luxon.DateTime](https://moment.github.io/luxon/).
