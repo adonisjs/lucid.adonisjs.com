@@ -258,6 +258,22 @@ posts.queryString({ status: 'published', sort: 'newest' })
 
 With the settings above, `posts.getUrl(2)` returns `/posts?status=published&sort=newest&page=2`, and `getUrlsForRange`, `getNextPageUrl`, and `getPreviousPageUrl` all honor the same base URL and query-string values.
 
+### Custom page name
+
+The `paginate` method accepts the name of the page query-string parameter as its third argument. It defaults to `page`. Read the page number from the same parameter.
+
+```ts
+const page = request.input('p', 1)
+
+const posts = await Post.query()
+  .orderBy('created_at', 'desc')
+  .paginate(page, 20, 'p')
+
+posts.baseUrl('/posts')
+```
+
+With the settings above, `posts.getUrl(2)` returns `/posts?p=2`, and the metadata has `pageName: 'p'`.
+
 ## Transform and serialize responses
 
 Pagination responses travel through three common shapes in AdonisJS applications: API endpoints that return JSON, Inertia endpoints that pass data to the frontend as props, and Edge templates that render pagination links. The first two are best handled by AdonisJS transformers, which keep the response shape explicit and preserve type safety end-to-end.
