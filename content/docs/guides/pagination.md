@@ -32,6 +32,18 @@ SimplePaginator {
 It is recommended to use the `orderBy` method when using pagination to avoid a different order every time you query the data.
 :::
 
+## Custom page name
+
+The `paginate` method accepts an optional argument to customize the query parameter name. By default, it uses `page`.
+
+```ts
+const page = request.input('customPageName', 1)
+const limit = 10
+
+const posts = await db.from('posts').paginate(page, limit, 'customPageName')
+// Paginator metadata will generate URLs like: ?customPageName=2
+```
+
 ## Displaying pagination links
 
 Following is a complete example of displaying the pagination links inside an Edge template.
