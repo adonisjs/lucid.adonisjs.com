@@ -48,6 +48,12 @@
     "category": "Database"
   },
   {
+    "permalink": "connection-manager",
+    "title": "Connection manager",
+    "contentPath": "./guides/connection_manager.md",
+    "category": "Database"
+  },
+  {
     "permalink": "validation",
     "title": "Validation rules",
     "contentPath": "./guides/validation.md",
