@@ -139,3 +139,7 @@ html.dark {
   --accent-a11: var(--brown-a11);
   --accent-a12: var(--brown-a12);
 }
+
+.markdown .alert_contents .dimer_highlight {
+  border: 1px solid var(--pre-title-border-color);
+}

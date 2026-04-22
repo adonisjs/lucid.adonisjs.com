@@ -1,854 +1,397 @@
 ---
-summary: Learn how to serialize model instances using transformers for type-safe API responses.
+summary: Serialize Lucid models into JSON responses using AdonisJS transformers, including preload coordination, pagination, $extras aggregates, many-to-many pivots, and sideloaded data.
 ---
 
-# Serializing models with transformers
+# Serializing models
 
-In this guide, you will learn:
+This guide covers the Lucid-specific patterns for serializing models with AdonisJS transformers. You will learn how to:
 
-- How to create and use transformers to serialize models to JSON
-- How to handle computed properties and field transformations
-- How to serialize relationships and paginated results
-- How to create multiple output variants for different contexts
-- How to generate TypeScript types for your frontend
+- Generate a transformer alongside a Lucid model
+- Preload relationships before handing a model to a transformer
+- Paginate Lucid queries and serialize the paginator result
+- Surface `$extras` populated by `withCount` and `withAggregate`
+- Include pivot attributes on many-to-many relationships
+- Include model accessors and sideloaded context in the transformer output
+- Shape list vs detail responses with variants
 
 ## Overview
 
-When building API servers, you need to convert model instances (which are rich TypeScript class instances) to plain JSON objects before sending them to clients. This process is called serialization.
+AdonisJS transformers are the recommended way to serialize Lucid models into JSON responses. They give you explicit control over the output shape, integrate with Inertia and JSON APIs through the same `serialize()` helper, and generate TypeScript types your frontend can consume directly.
 
-Transformers provide an explicit, type-safe approach to serialization in AdonisJS. Instead of relying on implicit model serialization methods, transformers give you complete control over what data gets exposed in your API responses. They live in separate classes, making it easy to test and reuse serialization logic across your application.
+This guide focuses on Lucid-specific patterns. The [AdonisJS transformers guide](https://docs.adonisjs.com/guides/frontend/transformers) covers the transformer API itself: creating transformers, `toObject` / `pick`, variants, dependency injection, custom constructor data, `.depth()`, and the generated TypeScript types. Read that guide first if you are new to transformers.
 
-The transformer system automatically generates TypeScript types that your frontend can import. This ensures type safety between your API and client code, eliminating manual type definitions and keeping your frontend in sync with your backend.
+## Generating a transformer alongside the model
 
-Transformers are designed for API responses. There's no need to use them when rendering models inside Edge templates, as templates can work directly with model instances.
+When you generate a model with `--transformer`, Lucid creates a matching transformer in `app/transformers` at the same time.
 
-## Creating your first transformer
-
-Let's create a transformer for a `Post` model. Generate the transformer using the `make:transformer` command.
-
-```bash
-node ace make:transformer post
-# CREATE: app/transformers/post_transformer.ts
+```sh
+node ace make:model Post --transformer
+// CREATE: app/models/post.ts
+// CREATE: app/transformers/post_transformer.ts
 ```
 
-This creates a basic transformer with the following structure.
+The generated transformer uses your model's class name, imports it from `#models/...`, and declares the typed resource.
 
 ```ts
 // title: app/transformers/post_transformer.ts
 import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
+import Post from '#models/post'
 
 export default class PostTransformer extends BaseTransformer<Post> {
-  /**
-   * The toObject method defines the default serialized output
-   */
   toObject() {
-    return this.pick(this.resource, [
-      'id',
-      'title',
-      'content',
-      'createdAt',
-      'updatedAt'
-    ])
+    return this.pick(this.resource, ['id'])
   }
 }
 ```
 
-A few important things to know. The transformer extends `BaseTransformer` and receives the model type as a generic parameter. The `toObject` method defines what gets serialized, and it has access to the model instance via `this.resource`. The `pick` helper method selects specific fields from the model.
+From here, add the fields you want in the output and wire it up in a controller. The rest of this guide covers the patterns you will reach for when the transformer needs to work with real Lucid queries.
 
-## Using transformers in controllers
+## Preload before you transform
 
-Once you've created a transformer, you can use it in your controllers by calling the `serialize` method from the HTTP context. The `serialize` method accepts the transformed data and returns it as a JSON response.
+Transformers do not issue their own queries. They only read from the model instance you pass to `transform`. If the transformer accesses a relationship that was not preloaded, it reads `undefined` on `hasOne` and `belongsTo` relationships (or an empty array on `hasMany` and `manyToMany`) and skips it silently at best, or throws when you forget to guard the access.
+
+The rule is: whatever the transformer reads, the query must have preloaded.
 
 ```ts
 // title: app/controllers/posts_controller.ts
-import Post from '#models/post'
 import type { HttpContext } from '@adonisjs/core/http'
-import PostTransformer from '#transformers/post_transformer'
-
-export default class PostsController {
-  /**
-   * Serialize a single model instance
-   */
-  async show({ serialize, params }: HttpContext) {
-    const post = await Post.findOrFail(params.id)
-    
-    return serialize(PostTransformer.transform(post))
-  }
-
-  /**
-   * Serialize an array of model instances
-   */
-  async index({ serialize }: HttpContext) {
-    const posts = await Post.all()
-    
-    return serialize(PostTransformer.transform(posts))
-  }
-}
-```
-
-The `PostTransformer.transform()` method accepts either a single model instance or an array of instances, automatically handling both cases. The serialized output will be a JSON response with the fields you defined in the `toObject` method.
-
-### What you learned
-
-You now know how to:
-- Generate a transformer using `make:transformer`
-- Define serialized fields using the `toObject` method
-- Use `this.pick()` to select specific model properties
-- Transform data in controllers with `PostTransformer.transform()`
-- Return serialized responses with the `serialize()` context method
-
-## Common serialization patterns
-
-### Renaming properties
-
-You can rename properties by defining them explicitly in your `toObject` method instead of using `pick`. This gives you complete control over the output structure.
-
-```ts
-// title: app/transformers/post_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
-    return {
-      id: this.resource.id,
-      title: this.resource.title,
-      /**
-       * Rename 'body' to 'content' in the output
-       */
-      content: this.resource.body,
-      createdAt: this.resource.createdAt,
-      updatedAt: this.resource.updatedAt
-    }
-  }
-}
-```
-
-The output will use `content` as the property name even though the model property is named `body`. This is useful when your API naming conventions differ from your database column names.
-
-### Hiding sensitive properties
-
-To hide sensitive data from API responses, simply don't include those properties in your `toObject` method. For example, excluding a password field.
-
-```ts
-// title: app/transformers/user_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type User from '#models/user'
-
-export default class UserTransformer extends BaseTransformer<User> {
-  toObject() {
-    /**
-     * The password property is not included, so it won't
-     * appear in the serialized output
-     */
-    return this.pick(this.resource, [
-      'id',
-      'fullName',
-      'email',
-      'createdAt'
-    ])
-  }
-}
-```
-
-This approach is more secure than model-based serialization because you explicitly define what gets exposed. There's no risk of accidentally exposing sensitive fields.
-
-### Adding computed properties
-
-You can add computed values to your serialized output by calculating them within the `toObject` method.
-
-```ts
-// title: app/transformers/post_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-import string from '@adonisjs/core/helpers/string'
-
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
-    return {
-      ...this.pick(this.resource, [
-        'id',
-        'title',
-        'content',
-        'createdAt'
-      ]),
-      /**
-       * Add a computed excerpt property that doesn't exist
-       * on the model
-       */
-      excerpt: string.truncate(this.resource.content, 100),
-      wordCount: this.resource.content.split(' ').length,
-      readingTime: Math.ceil(this.resource.content.split(' ').length / 200)
-    }
-  }
-}
-```
-
-Computed properties appear in the output alongside the model's actual properties, allowing you to add derived data without modifying your models.
-
-### Transforming values
-
-You can transform property values during serialization by manually defining how each field should be formatted.
-
-```ts
-// title: app/transformers/post_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
-    return {
-      id: this.resource.id,
-      title: this.resource.title,
-      /**
-       * Transform the DateTime instance to an ISO string in UTC.
-       * Guard against null values to prevent runtime errors.
-       */
-      createdAt: this.resource.createdAt 
-        ? this.resource.createdAt.setZone('utc').toISO()
-        : null,
-      updatedAt: this.resource.updatedAt
-        ? this.resource.updatedAt.setZone('utc').toISO()
-        : null
-    }
-  }
-}
-```
-
-This pattern is useful for formatting dates, converting enums to human-readable strings, or applying any other transformations to your data.
-
-### Including query extras
-
-When your queries select additional columns that aren't defined on the model, those values are stored in the `$extras` object. You can include them in your serialized output.
-
-```ts
-// title: app/controllers/posts_controller.ts
 import Post from '#models/post'
-import db from '@adonisjs/lucid/services/db'
-import type { HttpContext } from '@adonisjs/core/http'
 import PostTransformer from '#transformers/post_transformer'
 
 export default class PostsController {
   async index({ serialize }: HttpContext) {
-    /**
-     * Select category name using a subquery. This value
-     * will be available in post.$extras.categoryName
-     */
     const posts = await Post.query()
-      .select('*')
-      .select(
-        db.from('categories')
-          .select('name')
-          .whereColumn('posts.category_id', 'categories.id')
-          .limit(1)
-          .as('categoryName')
-      )
-    
+      .preload('author')
+      .preload('tags')
+      .orderBy('created_at', 'desc')
+
     return serialize(PostTransformer.transform(posts))
   }
 }
 ```
 
-Access and include the extra values in your transformer.
-
 ```ts
 // title: app/transformers/post_transformer.ts
 import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
+import Post from '#models/post'
+import UserTransformer from '#transformers/user_transformer'
+import TagTransformer from '#transformers/tag_transformer'
 
 export default class PostTransformer extends BaseTransformer<Post> {
   toObject() {
     return {
-      ...this.pick(this.resource, ['id', 'title']),
-      /**
-       * Include the categoryName from the $extras object
-       */
-      category: {
-        name: this.resource.$extras.categoryName
-      }
+      ...this.pick(this.resource, ['id', 'title', 'body', 'createdAt']),
+      author: UserTransformer.transform(this.resource.author),
+      tags: TagTransformer.transform(this.resource.tags),
     }
   }
 }
 ```
 
-This gives you full control over how extra query data gets structured in your API responses.
+Nested preloads follow the same shape: the query preloads a path like `posts.comments.author`, and the transformer at each level hands its relation to the corresponding transformer.
 
-## Serializing relationships
+```ts
+const users = await User
+  .query()
+  .preload('posts', (postsQuery) => {
+    postsQuery.preload('comments', (commentsQuery) => {
+      commentsQuery.preload('author')
+    })
+  })
 
-Transformers can reference other transformers to handle relationships, maintaining type safety across your entire object graph.
+return serialize(UserTransformer.transform(users))
+```
 
-### Basic relationship serialization
+When the transformer tries to read a relationship that might not be loaded, use `this.whenLoaded(...)` to skip rendering gracefully. This is the canonical pattern for relationships that only some endpoints preload.
 
-Create transformers for both the parent and related models.
+```ts
+author: UserTransformer.transform(this.whenLoaded(this.resource.author))
+```
+
+## Date and time formatting
+
+Every `@column.date` and `@column.dateTime` column is a Luxon `DateTime` instance. `DateTime.toJSON()` emits an ISO 8601 string by default, so including a date column through `pick` produces a standard machine-readable date on the wire.
+
+```ts
+return this.pick(this.resource, ['createdAt'])
+// { createdAt: "2026-03-15T10:45:00.000Z" }
+```
+
+When you want a specific format (date-only, localized, or truncated), format the date explicitly in the transformer.
+
+```ts
+return {
+  ...this.pick(this.resource, ['id', 'title']),
+  publishedOn: this.resource.publishedOn?.toFormat('yyyy-MM-dd'),
+  publishedRelative: this.resource.publishedAt?.toRelative(),
+}
+```
+
+`?.` handles nullable columns. For columns that are guaranteed non-null (primary keys with date types, `autoCreate` timestamps after save), the optional chain is unnecessary.
+
+## Paginating models
+
+`Post.query().paginate(page, perPage)` returns a `ModelPaginator` that exposes the page's rows on `all()` and the pagination metadata on `getMeta()`. Pass both to the transformer's static `paginate` method.
+
+```ts
+// title: app/controllers/posts_controller.ts
+import type { HttpContext } from '@adonisjs/core/http'
+import Post from '#models/post'
+import PostTransformer from '#transformers/post_transformer'
+
+export default class PostsController {
+  async index({ request, serialize }: HttpContext) {
+    const page = request.input('page', 1)
+    const posts = await Post.query()
+      .preload('author')
+      .orderBy('created_at', 'desc')
+      .paginate(page, 20)
+
+    return serialize(
+      PostTransformer.paginate(posts.all(), posts.getMeta())
+    )
+  }
+}
+```
+
+The response body includes the transformed rows under `data` and the pagination metadata under `metadata`. For Inertia, pass the paginator result directly to `inertia.render` without wrapping in `serialize` (the Inertia adapter handles the resolution).
+
+```ts
+return inertia.render('posts/index', {
+  posts: PostTransformer.paginate(posts.all(), posts.getMeta()),
+})
+```
+
+For the full pagination workflow including URL customization, see the [pagination guide](../guides/pagination.md).
+
+## Surfacing `$extras`
+
+Aggregates loaded through `withCount` and `withAggregate` do not become columns on the model. They land on the model instance's `$extras` object, so the transformer needs to read them from there.
+
+```ts
+// title: app/controllers/authors_controller.ts
+const authors = await User.query()
+  .withCount('posts')
+  .withAggregate('posts', (query) => {
+    query.max('created_at').as('lastPostAt')
+  })
+  .orderBy('id', 'asc')
+
+return serialize(UserTransformer.transform(authors))
+```
 
 ```ts
 // title: app/transformers/user_transformer.ts
 import { BaseTransformer } from '@adonisjs/core/transformers'
-import type User from '#models/user'
+import User from '#models/user'
 
 export default class UserTransformer extends BaseTransformer<User> {
   toObject() {
-    return this.pick(this.resource, [
-      'id',
-      'fullName',
-      'email'
-    ])
-  }
-}
-```
-
-Reference the relationship transformer in the parent transformer.
-
-```ts
-// title: app/transformers/post_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-import UserTransformer from '#transformers/user_transformer'
-
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
     return {
-      ...this.pick(this.resource, ['id', 'title', 'content']),
-      /**
-       * Transform the author relationship using UserTransformer
-       */
-      author: UserTransformer.transform(this.resource.author)
+      ...this.pick(this.resource, ['id', 'email', 'fullName']),
+      postsCount: Number(this.resource.$extras.posts_count ?? 0),
+      lastPostAt: this.resource.$extras.lastPostAt ?? null,
     }
   }
 }
 ```
 
-:::warning
+A few things to know about aggregates and `$extras`:
 
-**Why this matters**: Transformers don't load relationships automatically. You must eager-load relationships in your controller queries before transforming, or the relationship will be undefined.
+- `withCount` stores the result under `{relationName}_count` (snake_case), so `withCount('posts')` populates `$extras.posts_count`. Override the alias with the callback form (`.as('publishedPostsCount')`) to get a friendlier key.
+- Aggregate results come back as strings on some drivers (MySQL and SQLite return strings for integer aggregates; PostgreSQL returns numbers). Coerce with `Number(...)` if the frontend expects a numeric type regardless of the driver.
+- `$extras` is untyped. If a field is missing because the query did not request it, reading `$extras.foo` returns `undefined`. Default with `?? 0` (for counts) or `?? null` (for values) so transformers stay robust across endpoints that use different queries.
 
-**What happens if ignored**: You'll see a runtime error saying "Cannot transform undefined values. Use this.whenLoaded to guard against undefined values."
+Joined columns from raw SQL land in `$extras` too.
 
-**The solution**: Always preload relationships you plan to serialize.
+```ts
+await User.query()
+  .select('users.*', 'subscriptions.plan as subscription_plan')
+  .leftJoin('subscriptions', 'subscriptions.user_id', 'users.id')
+
+// In the transformer:
+subscriptionPlan: this.resource.$extras.subscription_plan ?? null
+```
+
+## Many-to-many and pivot attributes
+
+When a model comes back through a `manyToMany` relationship, its pivot columns are merged into `$extras` with a `pivot_` prefix. A `User.belongsToMany(Skill)` that pivots on a `user_skills` table with `proficiency` and `last_used_at` columns exposes them as `$extras.pivot_proficiency` and `$extras.pivot_last_used_at` on each loaded `Skill` instance.
+
+Declare the pivot columns on the relationship, preload them from the query side, and read them from `$extras` in the transformer.
+
+```ts
+// title: app/models/user.ts
+import { manyToMany } from '@adonisjs/lucid/orm'
+import type { ManyToMany } from '@adonisjs/lucid/types/relations'
+import Skill from '#models/skill'
+
+export default class User extends UsersSchema {
+  @manyToMany(() => Skill, {
+    pivotTable: 'user_skills',
+    pivotColumns: ['proficiency', 'last_used_at'],
+  })
+  declare skills: ManyToMany<typeof Skill>
+}
+```
+
+```ts
+// title: app/controllers/users_controller.ts
+const users = await User.query().preload('skills')
+return serialize(UserTransformer.transform(users))
+```
+
+```ts
+// title: app/transformers/skill_transformer.ts
+import { BaseTransformer } from '@adonisjs/core/transformers'
+import Skill from '#models/skill'
+
+export default class SkillTransformer extends BaseTransformer<Skill> {
+  toObject() {
+    return {
+      ...this.pick(this.resource, ['id', 'name']),
+      pivot: {
+        proficiency: this.resource.$extras.pivot_proficiency,
+        lastUsedAt: this.resource.$extras.pivot_last_used_at,
+      },
+    }
+  }
+}
+```
+
+Grouping pivot data under a `pivot` key in the output is a common convention that keeps it visually separate from the related model's own fields. For more on pivot columns, pivot timestamps, and `pivotQuery` patterns, see the [many-to-many relationships guide](../relationships/many_to_many.md).
+
+## Model accessors and derived properties
+
+TypeScript getters on the model surface as regular readable properties. They are available inside the transformer through `this.resource.<name>` and work with `this.pick(...)`.
+
+```ts
+// title: app/models/user.ts
+export default class User extends UsersSchema {
+  get fullName(): string {
+    return `${this.firstName} ${this.lastName}`.trim()
+  }
+
+  get initials(): string {
+    return `${this.firstName?.[0] ?? ''}${this.lastName?.[0] ?? ''}`.toUpperCase()
+  }
+}
+```
+
+```ts
+// title: app/transformers/user_transformer.ts
+toObject() {
+  return this.pick(this.resource, [
+    'id',
+    'email',
+    'firstName',
+    'lastName',
+    'fullName',
+    'initials',
+  ])
+}
+```
+
+Getters that need async work (fetching a signed URL, calling an external service) cannot be used through `pick`. Perform the async work inside an async `toObject` and spread the picked fields alongside the computed values.
+
+```ts
+async toObject() {
+  return {
+    ...this.pick(this.resource, ['id', 'avatarPath']),
+    avatarUrl: await this.resource.buildSignedAvatarUrl(),
+  }
+}
+```
+
+## Sideloaded context
+
+The model query builder's `sideload(value)` attaches arbitrary key-value pairs to every returned model instance under `$sideloaded`. The attached values propagate to preloaded relationships as well, so you can pass request-scoped context (the current user, a tenant ID, a feature flag) through a query tree without modifying every controller downstream.
 
 ```ts
 // title: app/controllers/posts_controller.ts
-async show({ serialize, params }: HttpContext) {
-  const post = await Post.query()
-    .where('id', params.id)
-    .preload('author')  // Must preload the relationship
-    .firstOrFail()
-  
-  return serialize(PostTransformer.transform(post))
-}
+const posts = await Post
+  .query()
+  .preload('author')
+  .sideload({ currentUser: auth.user })
 ```
 
-:::
-
-### Conditional relationships
-
-For optional relationships that may or may not be loaded, use `this.whenLoaded()` to guard against undefined values.
+Read the value from `$sideloaded` in the transformer that needs it. Because the object is shared across every loaded model in the tree, both `Post` and the preloaded `author` see the same `currentUser`.
 
 ```ts
 // title: app/transformers/post_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-import UserTransformer from '#transformers/user_transformer'
+toObject() {
+  const currentUser = this.resource.$sideloaded.currentUser as User | undefined
 
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
-    return {
-      ...this.pick(this.resource, ['id', 'title']),
-      /**
-       * Only include the author if it was preloaded.
-       * Returns undefined if not loaded, preventing errors.
-       */
-      author: UserTransformer.transform(
-        this.whenLoaded(this.resource.author)
-      )
-    }
+  return {
+    ...this.pick(this.resource, ['id', 'title', 'body']),
+    isOwnPost: currentUser?.id === this.resource.authorId,
   }
 }
 ```
 
-Now the author will only be included in the output when it's been preloaded. If it hasn't been preloaded, the property will be omitted from the response.
+`$sideloaded` is untyped, so cast it to the expected shape in the transformer. If the value may be absent (some endpoints do not call `sideload`), handle the undefined case explicitly.
 
-### Nested relationship depth
+`$sideloaded` is most useful when the same context is needed across many nested transformers. When the context is only relevant to one transformer, dependency injection of `HttpContext` in the transformer method is usually cleaner.
 
-By default, relationship transformers serialize one level deep. You can control this with the `depth` method.
+## List vs detail with variants
 
-```ts
-// title: app/transformers/post_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-import CommentTransformer from '#transformers/comment_transformer'
-
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
-    return {
-      ...this.pick(this.resource, ['id', 'title']),
-      /**
-       * Serialize comments and their nested relationships
-       * up to 2 levels deep
-       */
-      comments: CommentTransformer
-        .transform(this.resource.comments)
-        .depth(2)
-    }
-  }
-}
-```
-
-This ensures that if your comments have their own relationships (like authors), those will also be serialized.
-
-### Multiple relationships
-
-You can serialize multiple relationships by referencing their respective transformers.
+Pair your query's preload depth with a transformer variant to produce different shapes for list and detail endpoints. The list endpoint preloads only what the list view needs, and the detail endpoint preloads more and uses a richer variant.
 
 ```ts
 // title: app/transformers/post_transformer.ts
 import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-import UserTransformer from '#transformers/user_transformer'
-import CommentTransformer from '#transformers/comment_transformer'
-import CategoryTransformer from '#transformers/category_transformer'
-
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
-    return {
-      ...this.pick(this.resource, ['id', 'title', 'content']),
-      author: UserTransformer.transform(this.resource.author),
-      category: CategoryTransformer.transform(this.resource.category),
-      comments: CommentTransformer.transform(this.resource.comments)
-    }
-  }
-}
-```
-
-Remember to preload all relationships in your controller.
-
-```ts
-// title: app/controllers/posts_controller.ts
-async show({ serialize, params }: HttpContext) {
-  const post = await Post.query()
-    .where('id', params.id)
-    .preload('author')
-    .preload('category')
-    .preload('comments')
-    .firstOrFail()
-  
-  return serialize(PostTransformer.transform(post))
-}
-```
-
-## Serializing paginated results
-
-When working with paginated data, transformers provide a `paginate` method that handles both the data and pagination metadata.
-
-```ts
-// title: app/controllers/posts_controller.ts
 import Post from '#models/post'
-import type { HttpContext } from '@adonisjs/core/http'
-import PostTransformer from '#transformers/post_transformer'
-
-export default class PostsController {
-  async index({ serialize, request }: HttpContext) {
-    const page = request.input('page', 1)
-    
-    /**
-     * Get paginated results from Lucid
-     */
-    const posts = await Post.query().paginate(page, 20)
-    
-    /**
-     * Extract the data and metadata from the paginator
-     */
-    const data = posts.all()
-    const metadata = posts.getMeta()
-    
-    /**
-     * Use the paginate method to serialize both data and metadata
-     */
-    return serialize(PostTransformer.paginate(data, metadata))
-  }
-}
-```
-
-The serialized output will have this structure.
-
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "title": "First post",
-      "content": "..."
-    }
-  ],
-  "meta": {
-    "total": 100,
-    "perPage": 20,
-    "currentPage": 1,
-    "lastPage": 5,
-    "firstPage": 1,
-    "firstPageUrl": "/?page=1",
-    "lastPageUrl": "/?page=5",
-    "nextPageUrl": "/?page=2",
-    "previousPageUrl": null
-  }
-}
-```
-
-The `data` array contains your transformed models, while `meta` provides all the pagination information your frontend needs to build page navigation.
-
-## Creating output variants
-
-Sometimes you need different serialization formats for the same model in different contexts. Transformers support variants, which are additional methods that define alternative output shapes.
-
-### Defining variants
-
-Create variant methods in your transformer alongside the default `toObject` method.
-
-```ts
-// title: app/transformers/post_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
 import UserTransformer from '#transformers/user_transformer'
+import CommentTransformer from '#transformers/comment_transformer'
 
 export default class PostTransformer extends BaseTransformer<Post> {
-  /**
-   * Default variant for list views - minimal data
-   */
   toObject() {
-    return this.pick(this.resource, [
-      'id',
-      'title',
-      'excerpt',
-      'createdAt'
-    ])
+    return {
+      ...this.pick(this.resource, ['id', 'title', 'createdAt']),
+      author: UserTransformer.transform(this.resource.author),
+    }
   }
 
-  /**
-   * Detailed variant for single post views - full data.
-   * Variant methods can be async if needed.
-   */
   async forDetailedView() {
     return {
-      ...this.pick(this.resource, [
-        'id',
-        'title',
-        'content',
-        'createdAt',
-        'updatedAt'
-      ]),
-      author: UserTransformer.transform(this.resource.author),
-      wordCount: this.resource.content.split(' ').length
-    }
-  }
-
-  /**
-   * Minimal variant for dropdowns - just essentials
-   */
-  forDropdown() {
-    return this.pick(this.resource, ['id', 'title'])
-  }
-}
-```
-
-### Using variants in controllers
-
-Select which variant to use by calling `useVariant` on the transformed data.
-
-```ts
-// title: app/controllers/posts_controller.ts
-import Post from '#models/post'
-import type { HttpContext } from '@adonisjs/core/http'
-import PostTransformer from '#transformers/post_transformer'
-
-export default class PostsController {
-  /**
-   * List view uses the default variant (minimal data)
-   */
-  async index({ serialize }: HttpContext) {
-    const posts = await Post.all()
-    
-    return serialize(PostTransformer.transform(posts))
-  }
-
-  /**
-   * Detail view uses the forDetailedView variant
-   */
-  async show({ serialize, params }: HttpContext) {
-    const post = await Post.query()
-      .where('id', params.id)
-      .preload('author')
-      .firstOrFail()
-    
-    return serialize(
-      PostTransformer.transform(post).useVariant('forDetailedView')
-    )
-  }
-
-  /**
-   * Dropdown endpoint uses the forDropdown variant
-   */
-  async dropdown({ serialize }: HttpContext) {
-    const posts = await Post.all()
-    
-    return serialize(
-      PostTransformer.transform(posts).useVariant('forDropdown')
-    )
-  }
-}
-```
-
-Variants let you maintain a single transformer while supporting multiple output formats, keeping your code organized and DRY.
-
-### Variants with dependency injection
-
-Variant methods can use dependency injection to access the HTTP context or other services. Use the `@inject` decorator to declare dependencies.
-
-```ts
-// title: app/transformers/post_transformer.ts
-import { inject } from '@adonisjs/core'
-import type { HttpContext } from '@adonisjs/core/http'
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
-    return this.pick(this.resource, ['id', 'title'])
-  }
-
-  /**
-   * This variant receives the HTTP context to determine
-   * what actions the current user can perform
-   */
-  @inject()
-  async withPermissions({ auth }: HttpContext) {
-    const isOwner = auth.user?.id === this.resource.userId
-    const isAdmin = auth.user?.role === 'admin'
-    
-    return {
-      ...this.toObject(),
-      content: this.resource.content,
-      /**
-       * Include authorization data in the response
-       */
-      can: {
-        edit: isOwner || isAdmin,
-        delete: isOwner || isAdmin,
-        publish: isAdmin
-      }
+      ...(await this.toObject()),
+      body: this.resource.body,
+      comments: CommentTransformer.transform(this.resource.comments),
     }
   }
 }
 ```
 
-Use this variant normally in your controller.
-
 ```ts
 // title: app/controllers/posts_controller.ts
-async show({ serialize, params }: HttpContext) {
-  const post = await Post.findOrFail(params.id)
-  
+async index({ request, serialize }: HttpContext) {
+  const page = request.input('page', 1)
+  const posts = await Post
+    .query()
+    .preload('author')
+    .orderBy('created_at', 'desc')
+    .paginate(page, 20)
+
+  return serialize(PostTransformer.paginate(posts.all(), posts.getMeta()))
+}
+
+async show({ params, serialize }: HttpContext) {
+  const post = await Post
+    .query()
+    .where('id', params.id)
+    .preload('author')
+    .preload('comments', (q) => q.preload('author'))
+    .firstOrFail()
+
   return serialize(
-    PostTransformer.transform(post).useVariant('withPermissions')
+    PostTransformer.transform(post).useVariant('forDetailedView')
   )
 }
 ```
 
-The HTTP context will be automatically injected when the `serialize` method resolves the variant.
+The detail variant reuses the base shape through `this.toObject()` and layers on fields specific to the detail view. Because the query preloads `comments` only for the detail endpoint, the comments appear only in `forDetailedView`. See the [transformers variants guide](https://docs.adonisjs.com/guides/frontend/transformers#using-variants) for the full variant API including type generation.
 
-## TypeScript type generation
+## Where to learn more
 
-One of the most powerful features of transformers is automatic TypeScript type generation for your frontend applications.
-
-### How type generation works
-
-When you run your development server, AdonisJS automatically scans your transformers and generates TypeScript types in the `.adonisjs/client/data.d.ts` file.
-
-```bash
-node ace serve --hmr
-```
-
-For the `PostTransformer` example, this generates the following types.
-
-```ts
-// title: .adonisjs/client/data.d.ts (auto-generated)
-import type { InferData, InferVariants } from '@adonisjs/core/types/transformers'
-import type PostTransformer from '#transformers/post_transformer'
-
-export namespace Data {
-  /**
-   * The base type for the default variant
-   */
-  export type Post = InferData<PostTransformer>
-  
-  export namespace Post {
-    /**
-     * Types for all variants
-     */
-    export type Variants = InferVariants<PostTransformer>
-  }
-}
-```
-
-### Using generated types in your frontend
-
-Import the generated types in your frontend code.
-
-```ts
-// title: resources/js/types.ts
-import { Data } from '~/generated/data'
-
-/**
- * Use the base transformer type
- */
-type Post = Data.Post
-
-/**
- * Use a specific variant type
- */
-type DetailedPost = Data.Post.Variants['forDetailedView']
-type DropdownPost = Data.Post.Variants['forDropdown']
-
-/**
- * Example: React component with typed props
- */
-interface PostCardProps {
-  post: Post
-}
-
-function PostCard({ post }: PostCardProps) {
-  return (
-    <div>
-      <h2>{post.title}</h2>
-      <p>{post.excerpt}</p>
-    </div>
-  )
-}
-```
-
-The generated types ensure your frontend and backend stay in sync. If you change what fields your transformer returns, TypeScript will immediately flag any mismatches in your frontend code.
-
-### What you learned
-
-You now know how to:
-- Create variants for different serialization contexts
-- Use async variants for computed or database operations
-- Inject dependencies into variants with `@inject()`
-- Generate TypeScript types automatically for frontend use
-- Import and use generated types in your client code
-- Maintain type safety across your entire application
-
-## Migration from model serialization
-
-If you have existing code using model serialization methods (like `serialize()`, `toJSON()`, `serializeAs`, etc.), here's how to migrate to transformers.
-
-### Before (model serialization)
-
-```ts
-// title: app/models/post.ts
-import { DateTime } from 'luxon'
-import { BaseModel, column, computed } from '@adonisjs/lucid/orm'
-
-export default class Post extends BaseModel {
-  @column({ isPrimary: true })
-  declare id: number
-
-  @column({ serializeAs: 'content' })
-  declare body: string
-
-  @column({ serializeAs: null })
-  declare internalNotes: string
-
-  @computed()
-  get excerpt() {
-    return this.body.substring(0, 100)
-  }
-}
-```
-
-```ts
-// title: app/controllers/posts_controller.ts
-async show({ params }: HttpContext) {
-  const post = await Post.findOrFail(params.id)
-  
-  return post.serialize()  // Old approach
-}
-```
-
-### After (transformers)
-
-```ts
-// title: app/transformers/post_transformer.ts
-import { BaseTransformer } from '@adonisjs/core/transformers'
-import type Post from '#models/post'
-
-export default class PostTransformer extends BaseTransformer<Post> {
-  toObject() {
-    return {
-      id: this.resource.id,
-      /**
-       * Rename body to content (was serializeAs: 'content')
-       */
-      content: this.resource.body,
-      /**
-       * Add computed excerpt (was @computed)
-       */
-      excerpt: this.resource.body.substring(0, 100),
-      /**
-       * internalNotes is excluded (was serializeAs: null)
-       */
-    }
-  }
-}
-```
-
-```ts
-// title: app/controllers/posts_controller.ts
-import PostTransformer from '#transformers/post_transformer'
-
-async show({ serialize, params }: HttpContext) {
-  const post = await Post.findOrFail(params.id)
-  
-  return serialize(PostTransformer.transform(post))  // New approach
-}
-```
-
-```ts
-// title: app/models/post.ts (simplified)
-import { DateTime } from 'luxon'
-import { BaseModel, column } from '@adonisjs/lucid/orm'
-
-export default class Post extends BaseModel {
-  @column({ isPrimary: true })
-  declare id: number
-
-  /**
-   * Remove serialization decorators - transformers
-   * handle all serialization now
-   */
-  @column()
-  declare body: string
-
-  @column()
-  declare internalNotes: string
-}
-```
-
-### Key migration points
-
-The main differences when migrating.
-
-**Model decorators**: Remove `serializeAs`, `@computed`, and `serialize` callback options from your models. Transformers handle all serialization logic.
-
-**Field selection**: Instead of marking fields with `serializeAs: null`, simply don't include them in your transformer's `toObject` method.
-
-**Computed properties**: Move computed properties from model getters to calculated fields in your transformer.
-
-**Relationships**: Replace `serializeAs` on relationships with transformer references in your parent transformer.
-
-**Cherry-picking**: Instead of passing field/relation trees to `serialize()`, create variants in your transformer for different contexts.
-
-## See also
-
-- [Pagination guide](../guides/pagination.md) for learning about paginating query results
-- [Lucid relationships](./relationships.md) for understanding model relationships
+- The [AdonisJS transformers guide](https://docs.adonisjs.com/guides/frontend/transformers) covers the transformer API foundations: `toObject`, `pick`, `serialize`, variants, dependency injection, custom constructor data, depth control, and the generated TypeScript types that flow through to your frontend.
+- The [pagination guide](../guides/pagination.md) covers pagination end to end, including URL customization and API-versus-Inertia response shapes.
+- The [many-to-many relationships guide](../relationships/many_to_many.md) covers pivot columns, pivot timestamps, and query-time pivot operations in depth.

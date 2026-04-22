@@ -1,108 +1,154 @@
+---
+summary: Lucid model hooks let you attach behavior to persistence and query lifecycle events, including save, create, update, delete, find, fetch, and paginate.
+---
+
 # Hooks
 
-Hooks are the **actions that you can perform against a model instance** during a pre-defined life cycle event. Using hooks, you can encapsulate specific actions within your models vs. writing them everywhere inside your codebase.
+This guide covers Lucid model hooks. You will learn how to:
 
-A great example of hooks is password hashing. You can define a hook that runs before the `save` call and converts the plain text password to a hash.
+- Define hooks with decorators on your model classes
+- Understand the firing order of every hook
+- Write persistence hooks for save, create, update, and delete
+- Write query hooks for find, fetch, and paginate
+- Register hooks dynamically from application code
+- Skip hooks when the operation should not trigger them
+
+## Overview
+
+A hook is a static method on a model that Lucid invokes before or after a specific lifecycle event. Hooks keep model-owned behavior on the model, so actions like password hashing, audit logging, cache invalidation, and soft-delete filtering stay next to the model instead of scattered across controllers and services.
 
 ```ts
 // title: app/models/user.ts
-import { UserSchema } from '#database/schema'
-// highlight-start
 import hash from '@adonisjs/core/services/hash'
 import { beforeSave } from '@adonisjs/lucid/orm'
-// highlight-end
+import { UsersSchema } from '#database/schema'
 
-export default class User extends UserSchema {
-  // highlight-start
+export default class User extends UsersSchema {
   @beforeSave()
   static async hashPassword(user: User) {
     if (user.$dirty.password) {
       user.password = await hash.make(user.password)
     }
   }
-  // highlight-end
 }
 ```
 
-- The `beforeSave` hook is invoked before the **INSERT** and the **UPDATE** queries.
-- Hooks can be async. So you can use the `await` keyword inside them.
-- Hooks are always defined as static functions and receive the model's instance as the first argument.
+The `beforeSave` hook runs every time a `User` instance is saved, whether the save translates to an `INSERT` or an `UPDATE`. The `$dirty.password` check ensures the hash only runs when the password actually changed; otherwise the hook would rehash the stored hash on every update.
 
-:::tip
-
-**Understanding the `$dirty` property**
-
-The `beforeSave` hook is called every time a new user is **created** or **updated** using the model instance.
-
-During the update, you may have updated other properties but NOT the user password. Hence there is no need to re-hash the existing hash, which is why using the `$dirty` object.
-
-The `$dirty` object only contains the changed values. So, you can check if the password was changed and then hash the new value.
-
-:::
+Every hook can be async. Throwing from a `before` hook cancels the operation and propagates the error to the caller. Hooks run in the order they were registered.
 
 ## Available hooks
 
-Following is the list of all the available hooks.
+| Hook | Receives | Fires |
+| --- | --- | --- |
+| `beforeSave` | Model instance | Before `INSERT` and `UPDATE` |
+| `afterSave` | Model instance | After `INSERT` and `UPDATE` |
+| `beforeCreate` | Model instance | Before `INSERT` only |
+| `afterCreate` | Model instance | After `INSERT` only |
+| `beforeUpdate` | Model instance | Before `UPDATE` only |
+| `afterUpdate` | Model instance | After `UPDATE` only |
+| `beforeDelete` | Model instance | Before `DELETE` |
+| `afterDelete` | Model instance | After `DELETE` |
+| `beforeFind` | Query builder | Before `first`, `findOrFail`, `find`, `findBy` and related finders |
+| `afterFind` | Model instance | After the same set of finders |
+| `beforeFetch` | Query builder | Before fetching multiple rows through `exec` or `await` |
+| `afterFetch` | Array of model instances | After fetching multiple rows |
+| `beforePaginate` | `[countQuery, query]` tuple | Before `paginate` runs |
+| `afterPaginate` | `ModelPaginator` instance | After `paginate` returns |
 
-| Hook             | Description                                                                                                                 |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `beforeSave`     | Invoked **before the insert or the update** query. Receives the model instance as the only argument.                        |
-| `afterSave`      | Invoked **after the insert or the update** query. Receives the model instance as the only argument.                         |
-| `beforeCreate`   | Invoked only **before the insert** query. Receives the model instance as the only argument.                                 |
-| `afterCreate`    | Invoked only **after the insert** query. Receives the model instance as the only argument.                                  |
-| `beforeUpdate`   | Invoked only **before the update** query. Receives the model instance as the only argument.                                 |
-| `afterUpdate`    | Invoked only **after the update** query. Receives the model instance as the only argument.                                  |
-| `beforeDelete`   | Invoked **before the delete** query. Receives the model instance as the only argument.                                      |
-| `afterDelete`    | Invoked **after the delete** query. Receives the model instance as the only argument.                                       |
-| `beforePaginate` | Invoked **before the paginate** query. Receives the query main builder instance alongside the count query builder instance. |
-| `afterPaginate`  | Invoked **after the paginate** query. Receives an instance of the simple paginator class.                                   |
-| `beforeFetch`    | Invoked **before the fetch** query. Receives the query builder instance as the only argument.                               |
-| `afterFetch`     | Invoked **after the fetch** query. Receives an array of model instances                                                     |
-| `beforeFind`     | Invoked **before the find** query. Receives the query builder instance as the only argument.                                |
-| `afterFind`      | Invoked **after the find** query. Receives the model instance as the only argument.                                         |
+## Writing a hook
 
-### beforeSave
-The `beforeSave` decorator registers a given function as a before hook invoked before the **insert** and the **update** query.
+Register a hook by decorating a static method on the model class with the matching decorator from `@adonisjs/lucid/orm`. The method receives the model instance (for persistence and `find` hooks) or the query builder (for `beforeFind`, `beforeFetch`, and `beforePaginate`).
 
 ```ts
-import { UserSchema } from '#database/schema'
-import { beforeSave } from '@adonisjs/lucid/orm'
+// title: app/models/project.ts
+import { afterSave } from '@adonisjs/lucid/orm'
+import { ProjectsSchema } from '#database/schema'
 
-export default class User extends UserSchema {
+export default class Project extends ProjectsSchema {
+  @afterSave()
+  static async syncToAlgolia(project: Project) {
+    const syncService = await app.container.make(AlgoliaSyncService)
+    await syncService.syncProject(project)
+  }
+}
+```
+
+You can register multiple hooks of the same type on one model. They run in registration order, which for decorator-registered hooks follows the order the decorators appear in the class body.
+
+## Lifecycle order
+
+When a save runs, both the specific `beforeCreate`/`beforeUpdate` hook and the shared `beforeSave` hook fire. The order is always: the specific `before` hook first, then `beforeSave`, then the database write, then the specific `after` hook, then `afterSave`.
+
+**Creating a new row:**
+
+```
+beforeCreate → beforeSave → INSERT → afterCreate → afterSave
+```
+
+**Updating an existing row:**
+
+```
+beforeUpdate → beforeSave → UPDATE → afterUpdate → afterSave
+```
+
+**Deleting a row:**
+
+```
+beforeDelete → DELETE → afterDelete
+```
+
+If a `before` hook throws, the database operation is not executed and the `after` hooks do not run. The error propagates to the caller, which can let you treat the throw as a validation failure.
+
+## Persistence hooks
+
+### beforeSave
+
+Fires before both `INSERT` and `UPDATE`. Use it for invariants that apply to both code paths, like password hashing and value normalization.
+
+```ts
+import hash from '@adonisjs/core/services/hash'
+import { beforeSave } from '@adonisjs/lucid/orm'
+import { UsersSchema } from '#database/schema'
+
+export default class User extends UsersSchema {
   @beforeSave()
   static async hashPassword(user: User) {
     if (user.$dirty.password) {
-      user.password = await Hash.make(user.password)
+      user.password = await hash.make(user.password)
     }
   }
 }
 ```
 
+Check `user.$dirty` before mutating a column, so the hook only runs when the relevant property actually changed.
+
 ### afterSave
-The `afterSave` decorator registers a given function as a after hook invoked after the **insert** and the **update** query.
+
+Fires after both `INSERT` and `UPDATE`. Use it for side effects that follow a successful persist, such as search index updates, cache warm-up, or domain events.
 
 ```ts
-import { ProjectSchema } from '#database/schema'
 import { afterSave } from '@adonisjs/lucid/orm'
+import { ProjectsSchema } from '#database/schema'
 
-class Project extends ProjectSchema {
+export default class Project extends ProjectsSchema {
   @afterSave()
-  static async syncProjectsToAlgolia(project: Project) {
-    const syncService = await app.container.make(AlgoliaSyncService);
-
-    await syncService.syncProject(project);
+  static async syncToAlgolia(project: Project) {
+    const syncService = await app.container.make(AlgoliaSyncService)
+    await syncService.syncProject(project)
   }
 }
 ```
 
 ### beforeCreate
-The `beforeCreate` decorator registers the function to be invoked just before the insert operation.
+
+Fires before the `INSERT` only. Use it to assign server-generated defaults that exist on the model (not as a column default in the database).
 
 ```ts
-import { UserSchema } from '#database/schema'
 import { beforeCreate } from '@adonisjs/lucid/orm'
+import { UsersSchema } from '#database/schema'
 
-class User extends UserSchema {
+export default class User extends UsersSchema {
   @beforeCreate()
   static assignAvatar(user: User) {
     user.avatarUrl = getRandomAvatar()
@@ -110,138 +156,256 @@ class User extends UserSchema {
 }
 ```
 
-### beforeUpdate
-The `beforeUpdate` decorator registers the function to be invoked just before the update operation.
+### afterCreate
+
+Fires after the `INSERT` succeeds. Use it for side effects that only make sense on first insert, like sending a welcome email or creating a default set of related records.
 
 ```ts
-import { UserSchema } from '#database/schema'
-import { beforeUpdate } from '@adonisjs/lucid/orm'
+import { afterCreate } from '@adonisjs/lucid/orm'
+import { UsersSchema } from '#database/schema'
 
-class User extends UserSchema {
-  @beforeUpdate()
-  static async assignAvatar(user: User) {
-    user.avatarUrl = getRandomAvatar()
+export default class User extends UsersSchema {
+  @afterCreate()
+  static async sendWelcomeEmail(user: User) {
+    await mail.send((message) => {
+      message.to(user.email).subject('Welcome')
+    })
   }
 }
 ```
+
+### beforeUpdate
+
+Fires before the `UPDATE`. Use it to enforce invariants that apply to updates only, like preventing changes to immutable fields.
+
+```ts
+import { beforeUpdate } from '@adonisjs/lucid/orm'
+import { ProjectsSchema } from '#database/schema'
+
+export default class Project extends ProjectsSchema {
+  @beforeUpdate()
+  static lockTenantId(project: Project) {
+    if (project.$dirty.tenantId) {
+      throw new Error('tenantId cannot be changed after creation')
+    }
+  }
+}
+```
+
+### afterUpdate
+
+Fires after the `UPDATE` succeeds. Use it for side effects that follow a change to an existing row.
 
 ### beforeDelete
-The `beforeDelete` decorator registers the function to be invoked just before the delete operation.
+
+Fires before the `DELETE`. Use it for validations or cleanup that must happen before the row goes away, such as refusing to delete a record that still has dependents.
 
 ```ts
-import { UserSchema } from '#database/schema'
 import { beforeDelete } from '@adonisjs/lucid/orm'
+import { ProjectsSchema } from '#database/schema'
 
-class User extends UserSchema {
+export default class Project extends ProjectsSchema {
   @beforeDelete()
-  static async removeFromCache(post: Post) {
-    await Cache.remove(`post-${post.id}`)
+  static async guardActiveProjects(project: Project) {
+    if (project.status === 'active') {
+      throw new Error('Active projects cannot be deleted')
+    }
   }
 }
 ```
+
+### afterDelete
+
+Fires after the row is deleted. Common uses include removing cached copies, notifying downstream systems, and cleaning up files.
+
+```ts
+import { afterDelete } from '@adonisjs/lucid/orm'
+import { PostsSchema } from '#database/schema'
+
+export default class Post extends PostsSchema {
+  @afterDelete()
+  static async removeFromCache(post: Post) {
+    await cache.delete(`post-${post.id}`)
+  }
+}
+```
+
+## Query hooks
+
+Query hooks attach behavior to read paths. They fire when the model is loaded through the model query builder, including the static finders that build queries under the hood.
 
 ### beforeFind
 
-The `beforeFind` hook is invoked just before the query is executed to find a single row. This hook receives the query builder instance, and you can attach your constraints to it.
+Fires before any query that resolves to a single row. The hook receives the query builder, so you can attach filters that apply to every find.
 
-Find operations are one's that intentionally selects a single database row. For example:
-
-- `Model.find()`
-- `Model.findBy()`
-- `Model.first()`
+Find-style queries include `Model.find`, `Model.findBy`, `Model.first`, `Model.findOrFail`, `Model.firstOrFail`, and any `.first()` / `.firstOrFail()` call on the model query builder.
 
 ```ts
-import { UserSchema } from '#database/schema'
 import { beforeFind } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
+import { UsersSchema } from '#database/schema'
 
-export default class User extends UserSchema {
+export default class User extends UsersSchema {
   @beforeFind()
-  static ignoreDeleted(query: ModelQueryBuilderContract<typeof User>) {
-    query.whereNull('is_deleted')
+  static filterDeleted(query: ModelQueryBuilderContract<typeof User>) {
+    query.whereNull('deleted_at')
   }
 }
 ```
 
 ### afterFind
 
-The `afterFind` event receives the model instance.
+Fires after a find-style query returns. Receives the model instance. Use it to decorate the row with derived values or to record an access event.
 
 ```ts
-import { UserSchema } from '#database/schema'
 import { afterFind } from '@adonisjs/lucid/orm'
+import { UsersSchema } from '#database/schema'
 
-export default class User extends UserSchema {
+export default class User extends UsersSchema {
   @afterFind()
-  static afterFindHook(user: User) {}
+  static async trackAccess(user: User) {
+    await accessLog.record(user.id)
+  }
 }
 ```
 
 ### beforeFetch
 
-Similar to `beforeFind`, the `beforeFetch` hook also receives the query builder instance. However, this hook is invoked whenever a query is executed without using the `first` method.
+Fires before any query that resolves to multiple rows (executed with `await` or `.exec()` on the model query builder). Receives the query builder, same as `beforeFind`.
 
 ```ts
-import { UserSchema } from '#database/schema'
 import { beforeFetch } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
+import { UsersSchema } from '#database/schema'
 
-export default class User extends UserSchema {
+export default class User extends UsersSchema {
   @beforeFetch()
-  static ignoreDeleted(query: ModelQueryBuilderContract<typeof User>) {
-    query.whereNull('is_deleted')
+  static filterDeleted(query: ModelQueryBuilderContract<typeof User>) {
+    query.whereNull('deleted_at')
   }
 }
 ```
 
+Most soft-delete implementations register the same filter on both `beforeFind` and `beforeFetch` so every read path is covered.
+
 ### afterFetch
 
-The `afterFetch` hook receives an array of model instances.
+Fires after a multi-row query returns. Receives an array of model instances.
 
 ```ts
-import { UserSchema } from '#database/schema'
 import { afterFetch } from '@adonisjs/lucid/orm'
+import { UsersSchema } from '#database/schema'
 
-export default class User extends UserSchema {
+export default class User extends UsersSchema {
   @afterFetch()
-  static afterFetchHook(users: User[]) {}
+  static warmCache(users: User[]) {
+    for (const user of users) {
+      cache.set(`user:${user.id}`, user, '1 hour')
+    }
+  }
 }
+```
+
+## Paginate hooks
+
+`paginate` fires both the fetch hooks and the paginate hooks in this order:
+
+```
+beforePaginate → beforeFetch → (count + data queries) → afterPaginate → afterFetch
 ```
 
 ### beforePaginate
 
-The `beforePaginate` query is executed when you make use of the `paginate` method. The paginate method fires both the `beforeFetch` and `beforePaginate` hooks.
-
-The hook function receives an array of query builders. The first instance is for the count's query, and the second is for the main query.
+Receives a tuple of two query builders: the count query (used to compute `total`) and the main query (used to fetch the page). Mutate both to keep counts and results in sync.
 
 ```ts
-import { UserSchema } from '#database/schema'
 import { beforePaginate } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
+import { UsersSchema } from '#database/schema'
 
-export default class User extends UserSchema {
+export default class User extends UsersSchema {
   @beforePaginate()
-  static ignoreDeleted([countQuery, query]: [
+  static filterDeleted([countQuery, query]: [
     ModelQueryBuilderContract<typeof User>,
-    ModelQueryBuilderContract<typeof User>
+    ModelQueryBuilderContract<typeof User>,
   ]) {
-    query.whereNull('is_deleted')
-    countQuery.whereNull('is_deleted')
+    countQuery.whereNull('deleted_at')
+    query.whereNull('deleted_at')
   }
 }
 ```
 
 ### afterPaginate
 
-The `afterPaginate` hook receives an instance of the [SimplePaginator](https://github.com/adonisjs/lucid/blob/efed38908680cca3b288d9b2a123586fab155b1d/src/Database/Paginator/SimplePaginator.ts#L20) class. The `paginate` method fires both the `afterFetch` and the `afterPaginate` hooks.
+Receives the `ModelPaginator` instance that `paginate` will resolve to. Use it for inspection or logging; mutating the paginator in place is unusual.
 
 ```ts
-import { UserSchema } from '#database/schema'
-import { beforePaginate } from '@adonisjs/lucid/orm'
-import type { SimplePaginatorContract } from '@adonisjs/lucid/types/querybuilder'
+import { afterPaginate } from '@adonisjs/lucid/orm'
+import type { ModelPaginatorContract } from '@adonisjs/lucid/types/model'
+import { UsersSchema } from '#database/schema'
 
-export default class User extends UserSchema {
+export default class User extends UsersSchema {
   @afterPaginate()
-  static afterPaginateHook(users: SimplePaginatorContract<User>) {}
+  static logUsage(paginator: ModelPaginatorContract<User>) {
+    logger.debug({ count: paginator.all().length, page: paginator.currentPage }, 'users paginated')
+  }
 }
 ```
+
+## Hooks and transactions
+
+When a model is saved or deleted inside a transaction, its `after` hooks fire **before** the transaction commits. If the transaction later rolls back, the row never actually ends up in the database, but the hook has already executed. Side effects the hook performed (sending emails, enqueueing background jobs, calling webhooks, invalidating caches) will be stranded against a database state that never happened.
+
+To guarantee a side effect only runs after the transaction commits, check whether the model is bound to a transaction through `$trx` and attach the work to the transaction's `after('commit', ...)` hook when it is. Outside a transaction, run the side effect directly.
+
+```ts
+// title: app/models/project.ts
+import { afterSave } from '@adonisjs/lucid/orm'
+import queue from '@adonisjs/queue/services/queue'
+import { ProjectsSchema } from '#database/schema'
+
+export default class Project extends ProjectsSchema {
+  @afterSave()
+  static async enqueueIndexJob(project: Project) {
+    const indexProject = () => queue.dispatch('projects.index', { id: project.id })
+
+    if (project.$trx) {
+      project.$trx.after('commit', indexProject)
+    } else {
+      await indexProject()
+    }
+  }
+}
+```
+
+When the save runs outside a transaction, `project.$trx` is `undefined` and the job is dispatched immediately. When the save runs inside a transaction, the dispatch is deferred until the transaction commits and is never triggered if the transaction rolls back. See [transaction hooks](../guides/transactions.md#transaction-hooks) for the full behavior of `trx.after('commit', ...)`, including the silent error handling applied to registered callbacks.
+
+## Registering hooks dynamically
+
+In addition to the decorators, you can register hooks at runtime through `Model.before(event, handler)` and `Model.after(event, handler)`. Use this pattern when hooks need to be registered from a service provider, a plugin, or a test setup rather than declared inline on the model.
+
+```ts
+// title: providers/app_provider.ts
+import User from '#models/user'
+import hash from '@adonisjs/core/services/hash'
+
+export default class AppProvider {
+  async boot() {
+    User.before('save', async (user) => {
+      if (user.$dirty.password) {
+        user.password = await hash.make(user.password)
+      }
+    })
+  }
+}
+```
+
+The event name is the lifecycle name without the `before`/`after` prefix, for example `save`, `create`, `update`, `delete`, `find`, `fetch`, or `paginate`. Dynamic and decorator-registered hooks share the same queue and fire in the order they were added.
+
+## Skipping hooks
+
+Three paths bypass hooks. Use them when the side effects hooks perform are not appropriate for the operation:
+
+- **`*Quietly` variants** (`createQuietly`, `createManyQuietly`, `saveQuietly`, `deleteQuietly`) run the same persistence but skip every hook for that operation. Useful inside seeders, migrations, and backup restores. See the [CRUD operations guide](./crud_operations.md#createquietly-and-createmanyquietly).
+- **`pojo()` on the query builder** returns plain JavaScript objects instead of model instances. No `afterFind` or `afterFetch` hook runs, since hooks operate on model instances. See the [model query builder guide](./query_builder.md#pojo).
+- **Bulk updates and deletes via the query builder** (`Model.query().update(...)`, `Model.query().delete()`) bypass instance-level hooks entirely, since no model instance is loaded. See [Updating in bulk with the query builder](./crud_operations.md#updating-in-bulk-with-the-query-builder).

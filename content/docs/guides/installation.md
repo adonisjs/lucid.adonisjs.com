@@ -1,8 +1,26 @@
+---
+summary: Get Lucid running in an AdonisJS application, create your first table, and start querying with a model.
+---
+
 # Installation and usage
 
-Lucid comes pre-configured with the `web` and the `api` starter kits. However, you can install and manually configure it as follows inside an AdonisJS project.
+This guide walks you through getting Lucid set up in an AdonisJS application. You will learn how to:
 
-Install the package from the npm packages registry using one of the following commands.
+- Install Lucid into an existing application
+- Review the database configuration produced by the configure command
+- Create and run your first migration
+- Build a model and query it from a controller
+- Drop down to the raw query builder when you need to
+
+## Overview
+
+Lucid is included with new AdonisJS applications and configured to use SQLite out of the box. If your application was created with the starter kit, you already have a working database setup and can skip ahead to [Create your first table](#create-your-first-table).
+
+If you are adding Lucid to an existing AdonisJS application, or you removed it earlier and want it back, follow the install section below. For applications that need PostgreSQL, MySQL, or another database from day one, see the [configuration guide](./configuration.md) for the complete set of driver and connection options.
+
+## Install into an existing application
+
+Install Lucid from the npm registry.
 
 :::codegroup
 
@@ -23,141 +41,50 @@ pnpm add @adonisjs/lucid
 
 :::
 
-Once done, you must run the following command to configure Lucid. You can optionally specify the database dialect you want to use using the `--db` flag. Following is the list of valid options.
-
-- `sqlite`
-- `postgres`
-- `mysql`
-- `mssql`
+Run the configure command to register Lucid with the framework. The `--db` flag chooses the database driver, and SQLite is the fastest option for local verification.
 
 ```sh
-node ace configure @adonisjs/lucid
-
-# Configure with MYSQL
-node ace configure @adonisjs/lucid --db=mysql
+// title: terminal
+node ace configure @adonisjs/lucid --db=sqlite
 ```
 
 :::disclosure{title="See steps performed by the configure command"}
 
-1. Registers the following service provider inside the `adonisrc.ts` file.
+1. Registers the Lucid service provider inside `adonisrc.ts`.
 
    ```ts
-   {
+   // title: adonisrc.ts
+   export default defineConfig({
      providers: [
-       // ...other providers
        () => import('@adonisjs/lucid/database_provider'),
-     ]
-   }
+     ],
+   })
    ```
 
-2. Register the following command inside the `adonisrc.ts` file.
+2. Registers Lucid commands inside `adonisrc.ts`.
 
    ```ts
-   {
+   // title: adonisrc.ts
+   export default defineConfig({
      commands: [
-       // ...other commands
        () => import('@adonisjs/lucid/commands'),
-     ]
-   }
+     ],
+   })
    ```
 
-3. Create the `config/database.ts` file.
+3. Creates `config/database.ts` with the selected driver.
 
-4. Define the environment variables and their validations for the selected dialect.
+4. Adds environment variables and validations for the selected database.
 
-5. Install required peer dependencies.
+5. Installs the required database driver.
 
 :::
 
-## Configuration
+## Your database config
 
-The configuration for Lucid is stored inside the `config/database.ts` file.
-
-See also: [Lucid config stubs](https://github.com/adonisjs/presets/tree/develop/src/lucid/stubs/config/database)
+The configure command generates `config/database.ts` based on the driver you selected. The SQLite setup looks like this.
 
 ```ts
-import env from '#start/env'
-import { defineConfig } from '@adonisjs/lucid'
-
-const dbConfig = defineConfig({
-  connection: 'postgres',
-  connections: {
-    postgres: {
-      client: 'pg',
-      connection: {
-        host: env.get('DB_HOST'),
-        port: env.get('DB_PORT'),
-        user: env.get('DB_USER'),
-        password: env.get('DB_PASSWORD'),
-        database: env.get('DB_DATABASE'),
-      },
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations'],
-      },
-    },
-  },
-})
-
-export default dbConfig
-```
-
-<dl>
-
-<dt>
-
-connection
-
-</dt>
-
-<dd>
-
-The default connection to use for making queries. The value must be a reference to one of the `connections` defined in the same config file.
-
-</dd>
-
-<dt>
-
-connections
-
-</dt>
-
-<dd>
-
-The `connections` object is a collection of named database connections you want to use. Connections are initialized lazily when you execute a query for the first time.
-
-</dd>
-
-<dt>
-
-connections.`name`.connection
-
-</dt>
-
-<dd>
-
-The value of the `connection` property is same as the [configuration object](https://knexjs.org/guide/#configuration-options) accepted by Knex.
-
-</dd>
-
-</dt>
-
-</dl>
-
-### SQLite
-
-SQLite stores your database in a single file, making it ideal for development and testing. Install the SQLite driver if not already installed:
-
-```bash
-npm install better-sqlite3
-
-# Directory in which the database file is kept by default
-mkdir tmp
-```
-
-Configure your SQLite connection in `config/database.ts`.
-
-```typescript
 // title: config/database.ts
 import env from '#start/env'
 import { defineConfig } from '@adonisjs/lucid'
@@ -168,199 +95,9 @@ const dbConfig = defineConfig({
     sqlite: {
       client: 'better-sqlite3',
       connection: {
-        filename: env.get('DB_DATABASE', 'tmp/dev.sqlite3')
+        filename: env.get('DB_DATABASE', 'tmp/db.sqlite3'),
       },
       useNullAsDefault: true,
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations']
-      }
-    }
-  }
-})
-
-export default dbConfig
-```
-
-The `filename` specifies where SQLite stores your database file. Use `useNullAsDefault: true` to prevent Knex warnings about default values.
-
-### MySQL
-
-MySQL requires the mysql2 driver. Install it if not already present:
-
-```bash
-npm install mysql2
-```
-
-Configure your MySQL connection.
-
-```typescript
-// title: config/database.ts
-import env from '#start/env'
-import { defineConfig } from '@adonisjs/lucid'
-
-const dbConfig = defineConfig({
-  connection: 'mysql',
-  connections: {
-    mysql: {
-      client: 'mysql2',
-      connection: {
-        host: env.get('DB_HOST'),
-        port: env.get('DB_PORT'),
-        user: env.get('DB_USER'),
-        password: env.get('DB_PASSWORD'),
-        database: env.get('DB_DATABASE')
-      },
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations']
-      }
-    }
-  }
-})
-
-export default dbConfig
-```
-
-Store your credentials in `.env`.
-
-```bash
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_USER=root
-DB_PASSWORD=secret
-DB_DATABASE=myapp
-```
-
-### PostgreSQL
-
-PostgreSQL requires the pg driver.
-
-```bash
-npm install pg
-```
-
-Configure your PostgreSQL connection.
-
-```typescript
-// title: config/database.ts
-import env from '#start/env'
-import { defineConfig } from '@adonisjs/lucid'
-
-const dbConfig = defineConfig({
-  connection: 'postgres',
-  connections: {
-    postgres: {
-      client: 'pg',
-      connection: {
-        host: env.get('DB_HOST'),
-        port: env.get('DB_PORT'),
-        user: env.get('DB_USER'),
-        password: env.get('DB_PASSWORD'),
-        database: env.get('DB_DATABASE')
-      },
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations']
-      }
-    }
-  }
-})
-
-export default dbConfig
-```
-
-PostgreSQL environment variables are the same as MySQL. PostgreSQL defaults to port 5432.
-
-## Connection strings
-
-Instead of individual connection properties, you can use connection strings. Connection strings are URL-formatted strings containing all connection details.
-
-```typescript
-// title: config/database.ts
-import env from '#start/env'
-import { defineConfig } from '@adonisjs/lucid'
-
-const dbConfig = defineConfig({
-  connection: 'postgres',
-  connections: {
-    postgres: {
-      client: 'pg',
-      // highlight-start
-      connection: env.get('DATABASE_URL'),
-      // highlight-end
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations']
-      }
-    }
-  }
-})
-
-export default dbConfig
-```
-
-Store the connection string in `.env`.
-
-```bash
-# PostgreSQL
-DATABASE_URL=postgres://username:password@localhost:5432/database_name
-
-# MySQL
-DATABASE_URL=mysql://username:password@localhost:3306/database_name
-
-# SQLite (file path)
-DATABASE_URL=sqlite://./tmp/dev.sqlite3
-```
-
-Connection strings are particularly useful in production environments where hosting providers supply database credentials as a single URL.
-
-## Configuring read-write replicas
-
-Lucid supports read-write replicas as a first-class citizen. You may configure one write database server, along with multiple read servers. All read queries are sent to the read servers in round-robin fashion, and write queries are sent to the write server.
-
-:::note
-
-Lucid does not perform any data replication for you. Therefore, you still have to rely on your database server for that.
-
-:::
-
-In the following example, we define one write server and two read replicas. Since, Lucid will merge the properties from the `connection` object with every node of read-write connection objects, you do not have to repeat `username` and `password` properties.
-
-```ts
-const dbConfig = defineConfig({
-  connection: 'postgres',
-  connections: {
-    postgres: {
-      client: 'pg',
-      connection: {
-        // delete-start
-        host: env.get('DB_HOST'),
-        port: env.get('DB_PORT'),
-        // delete-end
-        user: env.get('DB_USER'),
-        password: env.get('DB_PASSWORD'),
-        database: env.get('DB_DATABASE'),
-      },
-      // insert-start
-      replicas: {
-        read: {
-          connection: [
-            {
-              host: '192.168.1.1',
-            },
-            {
-              host: '192.168.1.2',
-            },
-          ],
-        },
-        write: {
-          connection: {
-            host: '196.168.1.3',
-          },
-        },
-      },
-      // insert-end
       migrations: {
         naturalSort: true,
         paths: ['database/migrations'],
@@ -368,187 +105,157 @@ const dbConfig = defineConfig({
     },
   },
 })
+
+export default dbConfig
 ```
 
-## Connection pooling
+The generator also adds the database file path to your `.env` file.
 
-[Connection pooling](https://en.wikipedia.org/wiki/Connection_pool) is a standard practice of maintaining minimum and maximum connections with the database server.
+```dotenv
+// title: .env
+DB_DATABASE=tmp/db.sqlite3
+```
 
-The **minimum connections** are maintained for improving the application performance. Since establishing a new connection is an expensive operation, it is always recommended to have a couple of connections ready to execute the database queries.
+The default path stores the SQLite database inside the `tmp/` directory that ships with every AdonisJS starter kit, so no further filesystem setup is required.
 
-The **maximum connections** are defined to ensure that your application doesn't overwhelm the database server with too many concurrent connections.
+For connection strings, multiple connections, read/write replicas, pooling options, and driver-specific setup, see the [configuration guide](./configuration.md).
 
-Lucid will queue new queries when the pool is full and waits for the pool to have free resources until the configured timeout. The default timeout is set to **60 seconds** and can be configured using the `pool.acquireTimeoutMillis` property.
+## Create your first table
+
+Use the `make:migration` command to scaffold a migration file. The `--create` flag produces a migration that creates a new table.
+
+```sh
+// title: terminal
+node ace make:migration posts --create=posts
+```
+
+Open the generated file and describe the columns for the `posts` table.
 
 ```ts
-{
-  postgres: {
-    client: 'pg',
-    connection: {},
-    // highlight-start
-    pool: {
-      acquireTimeoutMillis: 60 * 1000,
-    }
-    // highlight-end
+// title: database/migrations/1720000000000_create_posts_table.ts
+import { BaseSchema } from '@adonisjs/lucid/schema'
+
+export default class extends BaseSchema {
+  protected tableName = 'posts'
+
+  async up() {
+    this.schema.createTable(this.tableName, (table) => {
+      table.increments('id')
+      table.string('title').notNullable()
+      table.text('body').nullable()
+      table.timestamp('created_at')
+      table.timestamp('updated_at')
+    })
+  }
+
+  async down() {
+    this.schema.dropTable(this.tableName)
   }
 }
 ```
 
-:::tip
+Run the migration to create the table in the database.
 
-Bigger the pool size, the better the performance is a misconception. We recommend you read this [document](https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing) to understand how the smaller pool size can boost the application performance.
-
-:::
-
-You can configure the pool settings for a given connection inside the `config/database.ts` file.
-
-```ts
-{
-  connections: {
-    postgres: {
-      client: 'pg',
-      connection: {
-      },
-      // highlight-start
-      pool: {
-        min: 2,
-        max: 20,
-      },
-      // highlight-end
-    },
-  }
-}
+```sh
+// title: terminal
+node ace migration:run
 ```
 
-## Basic usage
+Lucid applies any pending migration files, prints a confirmation for each one, and regenerates `database/schema.ts` with a typed schema class for every table that now exists. Your model will extend that schema class in the next step.
 
-Once you have configured Lucid, you can start using the Database query builder to create and execute SQL queries. In the following code examples, we perform CRUD operations on the `posts` table.
+## Use a model
 
-```ts
-// title: Select query with pagination
-// highlight-start
-import db from '@adonisjs/lucid/services/db'
-// highlight-end
-import { HttpContext } from '@adonisjs/core/http'
+Lucid's primary workflow uses class-based models. A model maps a TypeScript class to a database table, inherits its column types from the generated schema, and lets you add relationships, lifecycle hooks, and domain methods alongside the data.
 
-export default class PostsController {
-  async index({ request }: HttpContext) {
-    const page = request.input('page', 1)
-    const limit = 20
+Generate a model for the `posts` table.
 
-    // highlight-start
-    const posts = await db
-      .query()
-      .from('posts')
-      .select('*')
-      .orderBy('id', 'desc')
-      .paginate(page, limit)
-    // highlight-end
-
-    return posts
-  }
-}
+```sh
+// title: terminal
+node ace make:model Post
 ```
 
+The generated model extends the schema class for the `posts` table, so you do not need to redeclare columns on the model itself.
+
 ```ts
-// title: Insert query
-// highlight-start
-import db from '@adonisjs/lucid/services/db'
-// highlight-end
-import { HttpContext } from '@adonisjs/core/http'
+// title: app/models/post.ts
+import { PostsSchema } from '#database/schema'
+
+export default class Post extends PostsSchema {}
+```
+
+Use the model inside a controller. `Post.create()` inserts a row and returns a model instance, and `Post.query()` returns a typed query builder scoped to the `posts` table.
+
+```ts
+// title: app/controllers/posts_controller.ts
+import type { HttpContext } from '@adonisjs/core/http'
+import Post from '#models/post'
 
 export default class PostsController {
   async store({ request }: HttpContext) {
-    const title = request.input('title')
-    const description = request.input('description')
+    return Post.create({
+      title: request.input('title'),
+      body: request.input('body'),
+    })
+  }
 
-    // highlight-start
-    const id = await db
-      .insertQuery()
+  async index() {
+    return Post.query().orderBy('id', 'desc')
+  }
+}
+```
+
+Wire the controller up in `start/routes.ts` so you can call it over HTTP.
+
+```ts
+// title: start/routes.ts
+import router from '@adonisjs/core/services/router'
+
+const PostsController = () => import('#controllers/posts_controller')
+
+router.get('/posts', [PostsController, 'index'])
+router.post('/posts', [PostsController, 'store'])
+```
+
+Start the dev server and send a request to `POST /posts` to create your first row, then `GET /posts` to read it back. You now have a working end-to-end Lucid setup.
+
+Define columns directly on the model only when you need to override generated schema behavior, such as custom serialization, `prepare` and `consume` transformations, or accessors with custom logic. For everything else, the generated schema class remains the source of truth.
+
+## Query without a model
+
+You can also use the `db` service directly to insert and read rows without going through a model. This path is useful for one-off queries, reports, or internal scripts where the full model machinery is more than you need.
+
+```ts
+// title: app/controllers/posts_controller.ts
+import type { HttpContext } from '@adonisjs/core/http'
+import db from '@adonisjs/lucid/services/db'
+
+export default class PostsController {
+  async store({ request }: HttpContext) {
+    const [post] = await db
       .table('posts')
       .insert({
-        title,
-        description,
+        title: request.input('title'),
+        body: request.input('body'),
       })
-      .returning('id')
-    // highlight-end
+      .returning(['id', 'title', 'body'])
+
+    return post
   }
-}
-```
 
-```ts
-// title: Update row by id
-// highlight-start
-import db from '@adonisjs/lucid/services/db'
-// highlight-end
-import { HttpContext } from '@adonisjs/core/http'
-
-export default class PostsController {
-  async update({ request, params }: HttpContext) {
-    const id = params.id
-    const title = request.input('title')
-    const description = request.input('description')
-
-    // highlight-start
-    const updateRowsCount = await db
-      .query()
+  async index() {
+    return db
       .from('posts')
-      .where('id', id)
-      .update({
-        title,
-        description,
-      })
-    // highlight-end
+      .select('id', 'title', 'body')
+      .orderBy('id', 'desc')
   }
 }
 ```
 
-```ts
-// title: Delete row by id
-// highlight-start
-import db from '@adonisjs/lucid/services/db'
-// highlight-end
-import { HttpContext } from '@adonisjs/core/http'
+See the [database service guide](./database_service.md) for the full set of entry points on the `db` service.
 
-export default class PostsController {
-  async delete({ request, params }: HttpContext) {
-    const id = params.id
+## Next steps
 
-    // highlight-start
-    const updateRowsCount = await db
-      .query()
-      .from('posts')
-      .where('id', id)
-      .delete()
-    // highlight-end
-  }
-}
-```
-
-## Switching between connections
-Since, you can define multiple connections within the `config/database.ts` file. You may switch between them at runtime using the `db.connection` method. It accepts the connection name (as defined inside the config file) as a parameter and return an instance of [QueryClient](https://github.com/adonisjs/lucid/blob/develop/src/query_client/index.ts) class for the mentioned connection.
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-
-/**
- * Get query client for "pg" connection
- */
-const pg = db.connection('pg')
-
-/**
- * Execute query
- */
-await pg.query().select('*').from('posts')
-```
-
-## Closing connections
-You may close open connections using the `db.manager.close` method. The method accepts the connection name (as defined inside the config file) as a parameter and calls the [disconnection method](https://github.com/adonisjs/lucid/blob/develop/src/connection/index.ts#L365) on the underlying connection class.
-
-It is recommend to not close connections, unless you know that you will not use making more queries using the given connection.
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-
-await db.manager.close('pg')
-```
+- [Configuration guide](./configuration.md) for all database config options, connection strings, replicas, and pooling.
+- [Database service guide](./database_service.md) for the `db` service entry points.
+- [Select query builder guide](../query_builders/select.md) for detailed select, update, delete, and pagination APIs.
+- [Models guide](../models/introduction.md) for the full Active Record workflow, relationships, hooks, and scopes.

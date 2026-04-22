@@ -1,97 +1,22 @@
-# Auto-Generated Schema Classes
+---
+summary: How Lucid generates schema classes from your database, the TypeScript types each database column maps to, schema rules for type customization, and model-level column overrides.
+---
 
-This guide covers how Lucid automatically generates schema classes from your database tables. You will learn about the migrations-first philosophy, type mappings, schema rules customization, and model-level overrides.
+# Schema classes
 
-## Overview
+This guide covers how models consume the schema classes Lucid generates from your database. You will learn how to:
 
-Schema classes are TypeScript classes that Lucid automatically generates by scanning your database tables. Each table gets its own schema class that your models extend, providing type-safe access to database columns without cluttering your models with schema definitions.
+- Read and understand a generated schema class
+- Know what TypeScript type each database column produces
+- Handle common types where the default mapping needs care (enums, JSON, dates, primary keys)
+- Customize generated types globally or per table with schema rules
+- Override columns on the model class with specific types, accessors, and read/write hooks
 
-This approach represents a fundamental shift from traditional ORMs. Instead of defining schema in models and generating migrations from them, Lucid reverses this flow: you write migrations that create or modify tables, and Lucid generates schema classes that models extend. This migration-first philosophy keeps models clean and focused on business logic while maintaining full TypeScript type safety.
+For the generation workflow itself (when `schema:generate` runs, adopting legacy databases, committing the generated file) see the [schema generation guide](../migrations/schema_generation.md). For the migrations-first philosophy, see the [introduction](../guides/introduction.md#the-database-is-the-source-of-truth).
 
-The schema classes are regenerated automatically whenever you run migrations, ensuring your models always stay in sync with your actual database structure.
+## Anatomy of a generated schema class
 
-## The migrations-first philosophy
-
-Traditional ORMs like TypeORM and Sequelize follow a models-first approach where you define your database schema within model classes or schema files, then generate migrations from those definitions. While convenient for greenfield projects, this approach has significant limitations:
-
-**Models become cluttered with database concerns.** Your model files mix business logic with schema definitions, column types, constraints, and database-specific configuration. This creates visual noise and makes models harder to understand.
-
-**Automatic migrations are limited.** When the ORM generates migrations automatically, it can only handle simple changes. Complex refactors like renaming a column while preserving data, splitting a table into two tables, or moving data between columns require manual intervention. The ORM's generated migration often becomes a starting point that you must modify anyway.
-
-**Existing databases are difficult to integrate.** Projects with existing databases that don't have migration history face challenges. You must either manually recreate the entire migration history or work without migrations altogether.
-
-Lucid solves these problems by reversing the relationship between migrations and models:
-
-**Migrations are hand-written and expressive.** You write migrations manually using Lucid's schema builder, which means you can handle any database operation. This includes renaming columns, transforming data, creating complex indexes, or performing multi-step refactors. Migrations become the source of truth for your database schema.
-
-**Models extend generated schema classes.** After you run migrations, Lucid scans your database tables and generates schema classes with proper TypeScript types for each column. Your models extend these schema classes, inheriting all column definitions automatically.
-
-**Models stay clean and focused.** Your model files are empty classes by default, containing only relationships, business logic, hooks, and custom methods. There's no visual clutter from column definitions or database configuration.
-
-**Existing databases work seamlessly.** Projects with existing databases can use Lucid without any migration history. Just run `schema:generate` to create schema classes from your existing tables, and your models immediately have type-safe access to all columns.
-
-This philosophy makes Lucid particularly well-suited for complex applications, legacy database integration, and teams that value explicit control over their database schema.
-
-## Basic workflow
-
-Let's walk through the complete workflow of creating a table, generating its schema class, and using it in a model.
-
-### Step 1: Create a migration
-
-First, create a migration that defines your database table structure:
-
-```ts
-// title: database/migrations/1703001234567_create_posts_table.ts
-import { BaseSchema } from '@adonisjs/lucid/schema'
-
-export default class extends BaseSchema {
-  protected tableName = 'posts'
-
-  async up() {
-    this.schema.createTable(this.tableName, (table) => {
-      table.increments('id')
-      table.string('title').notNullable()
-      table.text('content').notNullable()
-      
-      /**
-       * Timestamp columns are created without timezone information.
-       * Lucid will convert these to Luxon DateTime objects automatically.
-       */
-      table.timestamp('created_at')
-      table.timestamp('updated_at')
-    })
-  }
-
-  async down() {
-    this.schema.dropTable(this.tableName)
-  }
-}
-```
-
-### Step 2: Run the migration
-
-Execute your migration using the Ace command.
-
-```bash
-node ace migration:run
-```
-
-When the migration completes successfully, you'll see output confirming both the migration execution and schema generation.
-
-```bash
-❯ Executed 1703001234567_create_posts_table migration
-✔ Generated schema classes
-```
-
-Lucid automatically regenerates the `database/schema.ts` file after running migrations, ensuring your schema classes always match your database structure.
-
-:::note
-If you are not running migrations using AdonisJS, then you may run `node ace schema:generate` command to generate the schema classes.
-:::
-
-### Step 3: Examine the generated schema class
-
-Open the `database/schema.ts` file to see what Lucid generated. For the posts table, you'll find:
+When migrations run, Lucid writes one class per table to `database/schema.ts`. Each class extends `BaseModel`, declares a `static table`, exposes a readonly `$columns` tuple of column names, and declares every column with the appropriate `@column` decorator.
 
 ```ts
 // title: database/schema.ts
@@ -100,13 +25,8 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 
 export class PostsSchema extends BaseModel {
   static table = 'posts'
-  
-  /**
-   * The $columns property provides a readonly tuple of all column names.
-   * This enables TypeScript to provide accurate autocomplete for column references.
-   */
+
   static $columns = ['id', 'title', 'content', 'createdAt', 'updatedAt'] as const
-  
   $columns = PostsSchema.$columns
 
   @column({ isPrimary: true })
@@ -118,10 +38,6 @@ export class PostsSchema extends BaseModel {
   @column()
   declare content: string
 
-  /**
-   * Timestamp columns are automatically configured with autoCreate.
-   * The type includes null because timestamps can be nullable in the database.
-   */
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime | null
 
@@ -130,11 +46,16 @@ export class PostsSchema extends BaseModel {
 }
 ```
 
-Notice how column names are automatically converted from snake_case (as defined in the migration) to camelCase (as used in TypeScript). This happens automatically and cannot be customized. Lucid always assumes your database uses snake_case conventions.
+A few things worth knowing about the generated output:
 
-### Step 4: Create your model
+- Column names are converted from snake_case to camelCase. `created_at` in the database becomes `createdAt` on the model, with `columnName: 'created_at'` recorded internally so queries address the correct column.
+- The `static $columns` tuple drives autocomplete. Methods like `query().select(...)` use this tuple to offer type-safe column name completion.
+- Primary key columns are detected from the database and decorated with `@column({ isPrimary: true })`.
+- Date and datetime columns use the `@column.date` and `@column.dateTime` decorators rather than the plain `@column`. Both return Luxon `DateTime` instances.
 
-Now create a model that extends the generated schema class:
+You never edit `database/schema.ts` directly. The file is overwritten on every generation; customize through [schema rules](#customizing-types-with-schema-rules) or [model-level overrides](#overriding-columns-on-the-model).
+
+Your model extends the generated class and adds behavior.
 
 ```ts
 // title: app/models/post.ts
@@ -143,240 +64,209 @@ import { PostsSchema } from '#database/schema'
 export default class Post extends PostsSchema {}
 ```
 
-That's it. Your model is now a fully functional Lucid model with type-safe access to all columns, complete with TypeScript autocomplete and type checking.
+## Column type reference
 
-### Step 5: Use your model
+Lucid converts database-specific column types into TypeScript types through an internal mapping. The database driver reports the native column type (like `varchar` or `int4`), Lucid maps it to an internal category (like `string` or `number`), and the internal category determines the final TypeScript type.
 
-You can now use your model throughout your application with full type safety:
+The internal type is also the key you target when [customizing types with schema rules](#customizing-types-with-schema-rules).
 
-```ts
-// title: app/controllers/posts_controller.ts
-import type { HttpContext } from '@adonisjs/core/http'
-import Post from '#models/post'
+### Internal types
 
-export default class PostsController {
-  async index({ response }: HttpContext) {
-    const posts = await Post.all()
-    
-    /**
-     * TypeScript knows that each post has id, title, content,
-     * createdAt, and updatedAt properties with the correct types.
-     */
-    return response.json(posts)
-  }
-
-  async store({ request, response }: HttpContext) {
-    /**
-     * The create method accepts an object matching the model's columns.
-     * TypeScript will error if you provide invalid column names or types.
-     */
-    const post = await Post.create({
-      title: request.input('title'),
-      content: request.input('content'),
-    })
-    
-    return response.created(post)
-  }
-}
-```
-
-### What you learned
-
-You now know how to:
-- Create migrations that define your database schema
-- Generate schema classes automatically by running migrations
-- Create models that extend generated schema classes
-- Use models with full TypeScript type safety
-
-## Understanding type mappings
-
-Lucid converts database-specific column types into TypeScript types based on an internal mapping system. This mapping handles the nuances of different database systems (PostgreSQL, MySQL, SQLite, MSSQL) and provides consistent TypeScript types regardless of which database you're using.
-
-### Internal type system
-
-Lucid uses an internal type system as an abstraction layer between database-specific types and TypeScript types. When you create a column in a migration, the database returns a specific type name (like `varchar` in PostgreSQL or `nvarchar` in MSSQL). Lucid maps these database types to one of its internal types, which then determine the final TypeScript type.
-
-The internal types you can customize via schema rules are:
-
-| Internal Type | Default TypeScript Type | Description |
-|--------------|------------------------|-------------|
-| `number` | `number` | Integer and floating-point numbers |
-| `bigint` | `number` | Large integers (can be customized to TypeScript `bigint`) |
-| `decimal` | `number` | Decimal/numeric types with precision |
-| `boolean` | `boolean` | Boolean values |
+| Internal type | Default TypeScript type | Description |
+| --- | --- | --- |
+| `number` | `number` | Integer and floating-point columns |
+| `bigint` | `bigint \| number` | Large integers. The union default covers both drivers that return bigints as JavaScript `number` (when the value fits) and as `bigint` (when it does not). Override with a schema rule if your driver is consistent. |
+| `decimal` | `string` | Decimal types with precision. Defaults to `string` to preserve exact precision; override to `number` when application-side precision loss is acceptable. |
+| `boolean` | `boolean` | Boolean columns |
 | `string` | `string` | All text and character types |
-| `date` | `DateTime` | Date without time |
+| `date` | `DateTime` | Date without time. Uses the `@column.date` decorator. |
 | `time` | `string` | Time without date |
-| `DateTime` | `DateTime` | Date and time combined |
-| `binary` | `Buffer` | Binary data and blobs |
+| `DateTime` | `DateTime` | Combined date and time. Uses the `@column.dateTime` decorator. |
+| `binary` | `Buffer` | Binary and blob columns |
 | `json` | `any` | JSON columns |
 | `jsonb` | `any` | PostgreSQL JSONB columns |
-| `uuid` | `string` | UUID/GUID identifiers |
+| `uuid` | `string` | UUID and GUID columns |
 | `enum` | `string` | Enumerated types |
 | `set` | `string` | MySQL SET types |
-| `unknown` | `unknown` | Unrecognized or complex types |
+| `unknown` | `any` | Types Lucid does not recognize. Falls back to `any` so the column is usable without requiring manual casts. |
 
-### Database type to internal type mapping
+### Database type to internal type
 
-Different databases use different names for similar column types. Lucid normalizes these into internal types. Here's the complete mapping for all supported databases:
+The tables below list the concrete database types Lucid recognizes and how they map. For anything not listed, Lucid falls back to `unknown`.
 
-#### Numeric types
+**Numeric types**
 
-| Database Type | Internal Type | TypeScript Type | Notes |
-|--------------|---------------|-----------------|-------|
-| `smallint`, `integer`, `int` | `number` | `number` | Standard integers |
-| `bigint`, `unsigned big int` | `bigint` | `number` | Large integers, default to number |
-| `decimal`, `numeric`, `money` | `decimal` | `number` | Precise decimal values |
-| `real`, `double`, `float` | `number` | `number` | Floating-point numbers |
-| `tinyint` | `boolean` | `boolean` | MySQL uses tinyint(1) for booleans |
-| `mediumint` | `number` | `number` | MySQL medium integers |
-| `smallmoney` | `decimal` | `number` | MSSQL currency type |
-| `smallserial`, `serial` | `number` | `number` | PostgreSQL auto-increment |
-| `bigserial` | `bigint` | `number` | PostgreSQL large auto-increment |
+| Database type | Internal type | Notes |
+| --- | --- | --- |
+| `smallint`, `integer`, `int` | `number` | Standard integers |
+| `bigint`, `unsigned big int` | `bigint` | Large integers |
+| `decimal`, `numeric`, `money` | `decimal` | Precise decimals |
+| `real`, `double`, `double precision`, `float` | `number` | Floating-point |
+| `tinyint` | `boolean` | MySQL convention for booleans |
+| `mediumint` | `number` | MySQL medium integer |
+| `smallmoney` | `decimal` | MSSQL currency |
+| `smallserial`, `serial` | `number` | PostgreSQL auto-increment |
+| `bigserial` | `bigint` | PostgreSQL large auto-increment |
+| `int2`, `int4` | `number` | PostgreSQL integer aliases |
+| `int8` | `bigint` | PostgreSQL bigint alias |
+| `float4`, `float8` | `number` | PostgreSQL floating-point aliases |
+| `oid` | `number` | PostgreSQL object identifier |
+| `year` | `number` | MySQL year type |
 
-#### Boolean types
+**Boolean types**
 
-| Database Type | Internal Type | TypeScript Type |
-|--------------|---------------|-----------------|
-| `boolean`, `bool` | `boolean` | `boolean` |
-| `mssql.bit` | `boolean` | `boolean` |
+| Database type | Internal type |
+| --- | --- |
+| `boolean`, `bool` | `boolean` |
+| `bit` (MSSQL) | `boolean` |
 
-#### Text types
+**Text types**
 
-| Database Type | Internal Type | TypeScript Type | Notes |
-|--------------|---------------|-----------------|-------|
-| `char`, `varchar`, `text` | `string` | `string` | Standard text types |
-| `character`, `character varying` | `string` | `string` | PostgreSQL variants |
-| `tinytext`, `mediumtext`, `longtext` | `string` | `string` | MySQL text sizes |
-| `nchar`, `nvarchar`, `clob` | `string` | `string` | SQLite text types |
-| `ntext`, `sysname` | `string` | `string` | MSSQL text types |
-| `xml` | `string` | `string` | XML stored as string |
+| Database type | Internal type | Notes |
+| --- | --- | --- |
+| `char`, `varchar`, `text` | `string` | Standard text |
+| `character`, `character varying` | `string` | PostgreSQL variants |
+| `tinytext`, `mediumtext`, `longtext` | `string` | MySQL text sizes |
+| `nchar`, `nvarchar`, `clob` | `string` | Other dialects |
+| `ntext`, `sysname` | `string` | MSSQL text |
+| `xml` | `string` | XML stored as text |
 
-#### Date and time types
+**Date and time types**
 
-| Database Type | Internal Type | TypeScript Type | Notes |
-|--------------|---------------|-----------------|-------|
-| `date` | `date` | `DateTime` | Date only |
-| `time` | `time` | `string` | Time only |
-| `datetime`, `timestamp` | `DateTime` | `DateTime` | Combined date and time |
-| `timestamp without time zone` | `DateTime` | `DateTime` | PostgreSQL |
-| `timestamp with time zone` | `DateTime` | `DateTime` | PostgreSQL with timezone |
-| `smalldatetime`, `datetime2` | `DateTime` | `DateTime` | MSSQL variants |
-| `datetimeoffset` | `DateTime` | `DateTime` | MSSQL with timezone |
-| `interval` | `string` | `string` | PostgreSQL intervals |
-| `year` | `number` | `number` | MySQL year type |
+| Database type | Internal type | Notes |
+| --- | --- | --- |
+| `date` | `date` | Date only |
+| `time` | `time` | Time only, mapped to `string` |
+| `time without time zone`, `time with time zone` | `time` | PostgreSQL time variants |
+| `datetime`, `timestamp` | `DateTime` | Combined date and time |
+| `timestamp without time zone` | `DateTime` | PostgreSQL |
+| `timestamp with time zone` | `DateTime` | PostgreSQL with timezone |
+| `smalldatetime`, `datetime2` | `DateTime` | MSSQL variants |
+| `datetimeoffset` | `DateTime` | MSSQL with timezone |
+| `interval` | `string` | PostgreSQL intervals stored as strings |
 
-#### Binary types
+**Binary types**
 
-| Database Type | Internal Type | TypeScript Type |
-|--------------|---------------|-----------------|
-| `bytea`, `blob` | `binary` | `Buffer` |
-| `tinyblob`, `mediumblob`, `longblob` | `binary` | `Buffer` |
-| `binary`, `varbinary` | `binary` | `Buffer` |
-| `image`, `rowversion` | `binary` | `Buffer` |
+| Database type | Internal type |
+| --- | --- |
+| `bytea`, `blob` | `binary` |
+| `tinyblob`, `mediumblob`, `longblob` | `binary` |
+| `binary`, `varbinary` | `binary` |
+| `image`, `rowversion` | `binary` |
 
-#### JSON types
+**JSON types**
 
-| Database Type | Internal Type | TypeScript Type | Notes |
-|--------------|---------------|-----------------|-------|
-| `json` | `json` | `any` | Flexible JSON storage |
-| `jsonb` | `jsonb` | `any` | PostgreSQL binary JSON |
+| Database type | Internal type |
+| --- | --- |
+| `json` | `json` |
+| `jsonb` | `jsonb` |
 
-#### UUID types
+**UUID types**
 
-| Database Type | Internal Type | TypeScript Type |
-|--------------|---------------|-----------------|
-| `uuid` | `uuid` | `string` |
-| `uniqueidentifier` | `uuid` | `string` |
+| Database type | Internal type |
+| --- | --- |
+| `uuid` | `uuid` |
+| `uniqueidentifier` | `uuid` |
 
-#### Enum and set types
+**Enum and set types**
 
-| Database Type | Internal Type | TypeScript Type |
-|--------------|---------------|-----------------|
-| `enum` | `enum` | `string` |
-| `set` | `set` | `string` |
+| Database type | Internal type |
+| --- | --- |
+| `enum` | `enum` |
+| `set` | `set` |
 
-#### Special PostgreSQL types
+**PostgreSQL specialized types**
 
-| Database Type | Internal Type | TypeScript Type | Notes |
-|--------------|---------------|-----------------|-------|
-| `inet`, `cidr`, `macaddr` | `string` | `string` | Network addresses |
-| `tsvector`, `tsquery` | `string` | `string` | Full-text search |
-| `bit`, `bit varying` | `string` | `string` | Bit strings |
-| `hstore` | `unknown` | `unknown` | Key-value store |
-| Range types (`int4range`, etc.) | `unknown` | `unknown` | Range types |
-| Geometry types | `string` or `unknown` | Various | GIS types |
+| Database type | Internal type | Notes |
+| --- | --- | --- |
+| `inet`, `cidr`, `macaddr`, `macaddr8` | `string` | Network addresses |
+| `tsvector`, `tsquery` | `string` | Full-text search |
+| `bit`, `bit varying` | `string` | Bit strings |
+| `hstore` | `unknown` | Key-value store |
+| `int4range`, `int8range`, `numrange`, `tsrange`, `tstzrange`, `daterange` | `unknown` | Range types |
+| `int4multirange`, `int8multirange`, `nummultirange`, `tsmultirange`, `tstzmultirange`, `datemultirange` | `unknown` | Multirange types (PostgreSQL 14+) |
+| `pg_lsn`, `name`, `pg_snapshot`, `txid_snapshot` | `string` | Special identifier types |
+| `regclass`, `regproc`, `regprocedure`, `regoper`, `regoperator`, `regtype`, `regrole`, `regnamespace` | `string` | Object identifier types |
+| `point` | `string` | Point geometry |
+| `line`, `lseg`, `box`, `path`, `polygon`, `circle` | `string` | Geometric shapes |
+| `multipoint`, `multilinestring`, `multipolygon`, `geometrycollection` | `string` | Geometry collections |
+| `geometry`, `geography` | `unknown` | Untyped spatial |
 
-For the complete, up-to-date mapping of all database types, see the [source code on GitHub](https://github.com/adonisjs/lucid/blob/22.x/src/orm/schema_generator/mappings.ts).
+**MSSQL specialized types**
 
-### How type mapping works
+| Database type | Internal type |
+| --- | --- |
+| `hierarchyid` | `string` |
+| `sql_variant` | `unknown` |
 
-When Lucid generates schema classes, it follows this process:
+**SQLite type affinity variants**
 
-1. **Scan the database:** Lucid queries your database's information schema to get a list of all tables and their columns.
+SQLite returns types in uppercase, mapped alongside the standard lowercase variants:
 
-2. **Map database types to internal types:** For each column, Lucid looks up the database-specific type (like `varchar` or `timestamp`) in the `DATA_TYPES_MAPPING` and converts it to an internal type (like `string` or `DateTime`).
+| Database type | Internal type |
+| --- | --- |
+| `INTEGER` | `number` |
+| `REAL` | `number` |
+| `TEXT` | `string` |
+| `BLOB` | `binary` |
+| `NUMERIC` | `number` |
 
-3. **Apply schema rules (if configured):** If you've defined schema rules in `database/schema_rules.ts`, Lucid applies any custom type mappings or decorators for specific internal types, tables, or columns.
+For the complete up-to-date mapping including dialect-specific quirks, see the [mappings source on GitHub](https://github.com/adonisjs/lucid/blob/22.x/src/orm/schema_generator/mappings.ts).
 
-4. **Generate TypeScript code:** Lucid generates the schema class with `@column` decorators and TypeScript type annotations based on the final type mappings.
+### Dialect-qualified type lookup
 
-5. **Write to schema.ts:** All schema classes are written to a single `database/schema.ts` file that your models can import from.
+Before consulting the generic mapping, the generator first looks for `{dialect}.{columnType}`. This lets a type mean different things across dialects. For example, `bit` is a bit string on PostgreSQL (maps to `string`), but `mssql.bit` is a 1-bit boolean on SQL Server (maps to `boolean`). Users rarely interact with this directly; it matters only when you define a schema rule that needs to target a specific dialect's interpretation of a type.
+
+### Nullability and column order
+
+Two conventions are applied to every generated class:
+
+- **Nullability.** When a database column is nullable and is not the primary key, Lucid appends `| null` to the TypeScript type. Primary keys never receive the `| null` suffix regardless of their database nullability.
+- **Column order.** Columns are sorted alphabetically by property name in the generated class. The order does not reflect the table's physical column order.
+
+### Identifiers that are not valid JavaScript
+
+When a column name starts with a character that is not a valid JavaScript identifier (for example, a digit like `2fa_secret`), the generator prefixes the property name with an underscore (`_2fa_secret`) and records the original column name in the decorator's `columnName` argument so queries still address the correct column.
+
+```ts
+@column({ columnName: '2fa_secret' })
+declare _2fa_secret: string | null
+```
 
 ## Working with common data types
 
-While Lucid provides sensible defaults for all database types, certain types deserve special attention due to their complexity or database-specific nuances.
+Most types work without additional configuration. The types below need a note because they either require a design decision (enums, JSON) or produce richer runtime objects (dates, primary keys).
 
 ### Enums
 
-Database-native enums present several challenges that make them impractical for most applications:
+Database-native enum types are often a poor fit for application data for three reasons:
 
-**SQLite doesn't support enums.** SQLite uses `CHECK` constraints to simulate enum behavior, which means enum-based code won't be portable across databases.
+- SQLite does not support enums. Enum-based migrations are not portable across dialects.
+- PostgreSQL stores enums as separate types, which adds migration overhead.
+- Adding, removing, or renaming enum values in production usually requires a table rewrite or manual SQL, and some dialects disallow some of these operations entirely.
 
-**PostgreSQL stores enums separately.** PostgreSQL treats enums as custom database types that require additional queries to create and manage. This adds complexity to your migrations.
-
-**Enums are inflexible.** Adding or renaming enum values in production databases is difficult and often requires downtime. Some databases don't support renaming enum values at all.
-
-For these reasons, Lucid converts database enum columns to TypeScript `string` types by default. Instead of using database-native enums, we recommend storing integer values in the database and mapping them to meaningful constants in your application code:
+Lucid maps database enum columns to TypeScript `string` by default. The recommended pattern is to store the value as an integer (or a short string) and define the semantics in application code.
 
 ```ts
 // title: database/migrations/xxxx_create_posts_table.ts
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
-  protected tableName = 'posts'
-
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
+    this.schema.createTable('posts', (table) => {
       table.increments('id')
-      table.string('title')
-      
-      /**
-       * Store status as a tiny integer instead of an enum.
-       * This gives you flexibility to add/change values without database migrations.
-       */
+      table.string('title').notNullable()
       table.integer('status').unsigned().notNullable().defaultTo(0)
-      
       table.timestamps(true, true)
     })
   }
-
-  async down() {
-    this.schema.dropTable(this.tableName)
-  }
 }
 ```
-
-Then define the status mapping in your application:
 
 ```ts
 // title: app/models/post.ts
 import { PostsSchema } from '#database/schema'
 
-/**
- * PostStatus object serves as both a runtime value holder
- * and the basis for the PostStatus type.
- */
 export const PostStatus = {
   DRAFT: 0,
   PUBLISHED: 1,
@@ -389,107 +279,95 @@ export default class Post extends PostsSchema {
   get isDraft() {
     return this.status === PostStatus.DRAFT
   }
-  
+
   get isPublished() {
     return this.status === PostStatus.PUBLISHED
   }
 }
 ```
 
-You can now use `PostStatus` as both a value and a type throughout your application:
+`PostStatus` doubles as both a runtime value object and a TypeScript type. You can use it as either in the same file.
 
-```ts
-const post = new Post()
-post.status = PostStatus.DRAFT
-```
-
-If you still prefer to use enum columns for specific use cases, you can customize their TypeScript type using schema rules (covered later in this guide).
+If you still prefer native enums, customize the generated column type with a [schema rule](#customizing-types-with-schema-rules) to produce a strict union type.
 
 ### JSON columns
 
-JSON columns are mapped to TypeScript's `any` type by default. This provides maximum flexibility (you can store any JSON-serializable value without TypeScript complaining) but you lose type safety.
-
-```ts
-// title: database/migrations/xxxx_create_posts_table.ts
-import { BaseSchema } from '@adonisjs/lucid/schema'
-
-export default class extends BaseSchema {
-  protected tableName = 'posts'
-
-  async up() {
-    this.schema.createTable(this.tableName, (table) => {
-      table.increments('id')
-      table.string('title')
-      
-      /**
-       * JSON columns are perfect for flexible, semi-structured data
-       * like post metadata, user preferences, or feature flags.
-       */
-      table.json('metadata')
-      
-      table.timestamps(true, true)
-    })
-  }
-
-  async down() {
-    this.schema.dropTable(this.tableName)
-  }
-}
-```
-
-The generated schema class will have:
+JSON and JSONB columns map to TypeScript `any` by default. You get maximum flexibility at the cost of type safety.
 
 ```ts
 @column()
 declare metadata: any
 ```
 
-For better type safety, you can override the column type at the model level with a more specific interface. This approach is covered in detail in the "Model-level overrides" section below.
+Two paths tighten this type.
 
-The difference between `json` and `jsonb` in PostgreSQL is primarily about storage format and performance. Both map to `any` in TypeScript by default. Use `jsonb` for better query performance and indexing capabilities, and use `json` when you need to preserve exact JSON formatting including whitespace and key ordering.
-
-### Dates and timestamps
-
-Lucid converts all date and timestamp columns to Luxon's `DateTime` class, providing a powerful API for working with dates in JavaScript:
+The first is a schema rule that applies to every JSON column across your application.
 
 ```ts
-// title: database/migrations/xxxx_create_posts_table.ts
-import { BaseSchema } from '@adonisjs/lucid/schema'
+// title: database/schema_rules.ts
+import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
 
-export default class extends BaseSchema {
-  protected tableName = 'posts'
+export default {
+  types: {
+    json: {
+      tsType: 'JSON<any>',
+      decorators: [{ name: '@column' }],
+      imports: [
+        { source: '#types/db', typeImports: ['JSON'] },
+      ],
+    },
+  },
+  tables: {},
+} satisfies SchemaRules
+```
 
-  async up() {
-    this.schema.createTable(this.tableName, (table) => {
-      table.increments('id')
-      table.string('title')
-      
-      /**
-       * Date columns store only the date (no time component).
-       */
-      table.date('published_on')
-      
-      /**
-       * Timestamp columns store both date and time.
-       * These are automatically converted to DateTime objects.
-       */
-      table.timestamp('created_at')
-      table.timestamp('updated_at')
-    })
-  }
+```ts
+// title: types/db.ts
+export type JSON<T> = T
+```
 
-  async down() {
-    this.schema.dropTable(this.tableName)
-  }
+The second is a [model-level override](#overriding-columns-on-the-model) for one specific column.
+
+```ts
+// title: app/models/post.ts
+import type { JSON } from '#types/db'
+import { column } from '@adonisjs/lucid/orm'
+import { PostsSchema } from '#database/schema'
+
+export default class Post extends PostsSchema {
+  @column()
+  declare metadata: JSON<{ seoTitle?: string; keywords?: string[] }>
 }
 ```
 
-The generated schema class provides:
+Both approaches can be used together. See [Combining global and table rules](#combining-global-and-table-rules) below.
+
+The difference between `json` and `jsonb` in PostgreSQL is runtime: `jsonb` is indexable and slightly faster to query, while `json` preserves exact input formatting. Both map to `any` in TypeScript by default, and rules target them as separate internal types (`json` vs `jsonb`), so you can treat them the same or differently.
+
+### Dates and timestamps
+
+Every date and timestamp column maps to a Luxon `DateTime` instance, so dates have a full API available rather than being raw strings.
 
 ```ts
-@column.date()
-declare publishedOn: DateTime | null
+// title: app/models/post.ts
+import { PostsSchema } from '#database/schema'
 
+const post = await Post.findOrFail(params.id)
+
+post.createdAt.toFormat('yyyy-MM-dd')
+
+const daysSinceCreated = DateTime.now().diff(post.createdAt, 'days').days
+
+if (post.publishedOn && post.publishedOn > DateTime.now()) {
+  // scheduled for later
+}
+```
+
+The generated schema class uses `@column.date` for date columns and `@column.dateTime` for datetime and timestamp columns. The two decorators are functionally identical in the current release and accept the same options.
+
+Timestamp columns created with `table.timestamps(true, true)` are annotated with `autoCreate` and `autoUpdate`, which tell Lucid to set them automatically on insert and update respectively.
+
+```ts
 @column.dateTime({ autoCreate: true })
 declare createdAt: DateTime | null
 
@@ -497,82 +375,59 @@ declare createdAt: DateTime | null
 declare updatedAt: DateTime | null
 ```
 
-DateTime columns marked with `autoCreate: true` are automatically set to the current timestamp when you create a new record. Columns with `autoUpdate: true` are updated to the current timestamp whenever you save changes to the model.
-
-You can work with these DateTime objects using Luxon's full API:
-
-```ts
-const post = await Post.find(1)
-
-// Format dates for display
-console.log(post.createdAt.toFormat('yyyy-MM-dd'))
-
-// Perform date arithmetic
-const daysSinceCreated = DateTime.now().diff(post.createdAt, 'days').days
-
-// Compare dates
-if (post.publishedOn > DateTime.now()) {
-  console.log('This post is scheduled for future publication')
-}
-```
-
 ### Primary keys
 
-Lucid automatically detects primary key columns from your database. When generating schema classes, it queries each table for its primary key and applies the `@column({ isPrimary: true })` decorator to the corresponding column.
-
-This means you are not limited to using `id` as your primary key. Any column defined as the primary key in your migration will be detected and marked correctly in the generated schema class.
+Lucid detects the primary key column from the database when it generates schema classes. The column, whatever its name, is decorated with `@column({ isPrimary: true })` and its type matches whatever the database column's type is (integer, string, UUID).
 
 ```ts
 // title: database/migrations/xxxx_create_oauth_states_table.ts
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
-  protected tableName = 'oauth_states'
-
   async up() {
-    this.schema.createTable(this.tableName, (table) => {
-      /**
-       * Using a string column as the primary key instead of
-       * the conventional auto-incrementing id column.
-       */
+    this.schema.createTable('oauth_states', (table) => {
       table.string('key').notNullable().primary()
       table.text('value').notNullable()
       table.timestamp('updated_at')
     })
   }
-
-  async down() {
-    this.schema.dropTable(this.tableName)
-  }
 }
 ```
 
-The generated schema class will correctly identify `key` as the primary key:
-
 ```ts
-// title: database/schema.ts
-export class OauthStateSchema extends BaseModel {
-  static $columns = ['key', 'updatedAt', 'value'] as const
-  $columns = OauthStateSchema.$columns
+// title: database/schema.ts (generated)
+export class OauthStatesSchema extends BaseModel {
+  static table = 'oauth_states'
 
   @column({ isPrimary: true })
   declare key: string
 
-  @column.dateTime({ autoCreate: true, autoUpdate: true })
-  declare updatedAt: DateTime | null
-
   @column()
   declare value: string
+
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
 }
 ```
 
-Lucid models support only a single primary key. If your table has a composite primary key, Lucid will use the first column from the composite key.
+When your primary key is not named `id`, also set `static primaryKey` on your application model so relationships and default finders use the right column.
+
+```ts
+// title: app/models/oauth_state.ts
+import { OauthStatesSchema } from '#database/schema'
+
+export default class OauthState extends OauthStatesSchema {
+  static primaryKey = 'key'
+}
+```
+
+Lucid models support only a single primary key. When a table has a composite primary key, Lucid uses the first column. To customize the decision, use the [custom primary key detection](#customizing-primary-key-detection) rule.
 
 ## Customizing types with schema rules
 
-Schema rules allow you to customize how Lucid generates schema classes. You define rules in the `database/schema_rules.ts` file, which Lucid reads during schema generation. Rules can target specific internal types globally, specific tables, or individual columns within tables.
+Schema rules let you change how Lucid generates types and decorators without hand-editing `database/schema.ts`. Rules live in a file pointed at by `schemaGeneration.rulesPaths` in your database config (typically `database/schema_rules.ts`) and are loaded automatically by the generator. See the [configuration guide](../guides/configuration.md#schema-generation-config) for the field reference.
 
-The schema rules file is already created for you when you set up Lucid. If it doesn't exist, create it manually:
+A starter rules file looks like this:
 
 ```ts
 // title: database/schema_rules.ts
@@ -580,46 +435,148 @@ import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
 
 export default {
   types: {},
+  columns: {},
   tables: {},
 } satisfies SchemaRules
 ```
 
-### Structure of schema rules
+### Shape of the rules file
 
-Schema rules have two main sections:
+The rules file accepts five top-level keys, any of which can be omitted.
 
-The `types` section defines global rules for internal types. Any column that maps to one of these internal types will use your custom configuration unless overridden by a more specific rule.
+<dl>
 
-The `tables` section defines rules for specific tables and columns. These rules take precedence over global type rules, allowing fine-grained control.
+<dt>
+
+types
+
+</dt>
+
+<dd>
+
+Rules keyed by internal type name (`number`, `bigint`, `decimal`, `string`, `json`, `jsonb`, `uuid`, `enum`, `set`, and the others from the [internal types table](#internal-types)). The rule applies to every column that maps to that internal type across every table.
+
+</dd>
+
+<dt>
+
+columns
+
+</dt>
+
+<dd>
+
+Rules keyed by database column name. The rule applies to every column with that exact name across every table. Lucid's built-in defaults use this to apply `autoCreate` to every `created_at` column and `autoCreate + autoUpdate` to every `updated_at` column.
+
+</dd>
+
+<dt>
+
+tables
+
+</dt>
+
+<dd>
+
+Per-table rules. Each table entry can define its own `types`, `columns`, `skipColumns`, and `primaryKey` that apply only to that table.
+
+</dd>
+
+<dt>
+
+primaryKey
+
+</dt>
+
+<dd>
+
+A function that decides how primary keys are represented for every table. Receives the table name, detected primary key column names, and the full column metadata. See [Customizing primary key detection](#customizing-primary-key-detection).
+
+</dd>
+
+</dl>
+
+### Rule resolution precedence
+
+For each column, the generator walks a five-step lookup in this order and uses the first match:
+
+1. **Table-specific column rule** at `tables[tableName].columns[columnName]`
+2. **Table-specific type rule** at `tables[tableName].types[internalType]`
+3. **Global column rule** at `columns[columnName]`
+4. **Primary key rule** result, when the column is the detected primary key
+5. **Global type rule** at `types[internalType]`
+
+More specific rules win over less specific rules. A table column rule overrides a global column rule, which overrides a global type rule.
+
+Rules are applied when the schema file is generated. After changing rules, run `node ace schema:generate` to regenerate, or wait for the next migration command to regenerate automatically.
+
+### Shape of a rule value
+
+Every rule returns a `ColumnInfo` object with three fields:
 
 ```ts
-// title: database/schema_rules.ts
-import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
+type ColumnInfo = {
+  tsType: string
+  decorators?: { name: string; args?: Record<string, any> }[]
+  imports?: ImportInfo[]
+}
+```
 
-export default {
-  /**
-   * Global type rules apply to all columns of a given internal type
-   * across all tables, unless overridden by table-specific rules.
-   */
-  types: {
-    // Rules for internal types like 'json', 'bigint', 'enum', etc.
-  },
-  
-  /**
-   * Table-specific rules target individual tables and columns,
-   * providing the most precise control over type generation.
-   */
-  tables: {
-    // Rules for specific tables and their columns
-  },
-} satisfies SchemaRules
+<dl>
+
+<dt>
+
+tsType
+
+</dt>
+
+<dd>
+
+The TypeScript type to declare on the column, as a string (`'number'`, `'string'`, `'JSON<any>'`, `` `'admin' | 'user'` ``).
+
+</dd>
+
+<dt>
+
+decorators
+
+</dt>
+
+<dd>
+
+The decorators to emit above the column. An array of `{ name, args? }` objects where `name` is the decorator name starting with `@column` (for example, `'@column'`, `'@column.date'`, `'@column.dateTime'`) and `args` is an optional object of decorator arguments.
+
+</dd>
+
+<dt>
+
+imports
+
+</dt>
+
+<dd>
+
+Imports the generated file needs so the decorator and type resolve. Each entry is an `ImportInfo` object: `{ source, namedImports?, typeImports?, defaultImport?, defaultTypeImport? }`. Use `namedImports` for runtime values (like `DateTime` from Luxon) and `typeImports` for type-only imports.
+
+</dd>
+
+</dl>
+
+Rules can also be functions that return a `ColumnInfo`. The function receives the database type string (`'varchar'`, `'int4'`, and so on) and returns a rule. Use this when the same internal type needs slightly different handling based on the concrete database type.
+
+```ts
+types: {
+  string: (dataType) => ({
+    tsType: dataType === 'text' ? 'string' : `string`,
+    decorators: [{ name: '@column' }],
+    imports: [],
+  }),
+}
 ```
 
 ### Global type rules
 
-Global type rules modify how all columns of a specific internal type are generated. This is useful when you want consistent behavior across your entire application.
-
-For example, to change all JSON columns to use a custom `JSON` type wrapper:
+A global type rule targets every column that maps to the given internal type.
 
 ```ts
 // title: database/schema_rules.ts
@@ -627,65 +584,61 @@ import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
 
 export default {
   types: {
-    /**
-     * Customize all JSON columns globally to use a type-safe JSON wrapper
-     * instead of the default 'any' type.
-     */
     json: {
-      decorator: '@column()',
       tsType: 'JSON<any>',
+      decorators: [{ name: '@column' }],
       imports: [
-        {
-          source: '#types/db',
-          typeImports: ['JSON'],
-        },
+        { source: '#types/db', typeImports: ['JSON'] },
       ],
+    },
+    bigint: {
+      tsType: 'bigint',
+      decorators: [{ name: '@column' }],
     },
   },
   tables: {},
 } satisfies SchemaRules
 ```
 
-After defining this rule, all JSON columns across all tables will be generated as:
+With these rules, every JSON column becomes `JSON<any>`, and every bigint column becomes TypeScript `bigint`.
+
+### Global column rules
+
+Global column rules target every column with a given name across every table. Lucid ships with two built-in global column rules that you inherit by default:
+
+- `created_at` emits `@column.dateTime({ autoCreate: true })`
+- `updated_at` emits `@column.dateTime({ autoCreate: true, autoUpdate: true })`
+
+Add your own for columns you use consistently. For example, if every encrypted column in your database is named `ciphertext_*`, a global rule keeps them typed uniformly:
 
 ```ts
-@column()
-declare metadata: JSON<any>
-```
-
-You'll need to create the `JSON` type wrapper that this rule references:
-
-```ts
-// title: types/db.ts
-/**
- * Type-safe wrapper for JSON columns that preserves the generic parameter
- * while ensuring JSON-serializable values at runtime.
- */
-export type JSON<T> = T
+// title: database/schema_rules.ts
+export default {
+  columns: {
+    deleted_at: {
+      tsType: 'DateTime | null',
+      decorators: [{ name: '@column.dateTime' }],
+      imports: [
+        { source: 'luxon', namedImports: ['DateTime'] },
+      ],
+    },
+  },
+} satisfies SchemaRules
 ```
 
 ### Table-specific column rules
 
-Table-specific rules give you precise control over individual columns. These rules override any global type rules for those specific columns.
-
-For example, to map a `role` column to a TypeScript union type:
+Column rules target one specific column on one specific table.
 
 ```ts
 // title: database/schema_rules.ts
-import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
-
 export default {
-  types: {},
   tables: {
-    /**
-     * Customize the users table to make the role column
-     * a strict union type instead of a generic string.
-     */
     users: {
       columns: {
         role: {
-          decorator: '@column()',
           tsType: `'admin' | 'moderator' | 'user'`,
+          decorators: [{ name: '@column' }],
         },
       },
     },
@@ -693,62 +646,94 @@ export default {
 } satisfies SchemaRules
 ```
 
-This generates:
+With this rule, `users.role` is generated as:
 
 ```ts
 @column()
 declare role: 'admin' | 'moderator' | 'user'
 ```
 
-Now TypeScript will enforce that the `role` property can only be one of these three values.
+### Table-specific type rules
 
-### Combining global and table rules
-
-You can use both global type rules and table-specific column rules together. Table rules always take precedence:
+A per-table type rule overrides a global type rule for one table. Use this when one table treats a type differently from the rest of the application.
 
 ```ts
 // title: database/schema_rules.ts
-import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
-
 export default {
   types: {
-    /**
-     * Global rule: All JSON columns use JSON<any> by default.
-     */
     json: {
-      decorator: '@column()',
       tsType: 'JSON<any>',
+      decorators: [{ name: '@column' }],
       imports: [
-        {
-          source: '#types/db',
-          typeImports: ['JSON'],
-        },
+        { source: '#types/db', typeImports: ['JSON'] },
       ],
     },
-    
-    /**
-     * Global rule: All bigint columns use TypeScript bigint instead of number.
-     */
-    bigint: {
-      decorator: '@column.bigInteger()',
-      tsType: 'bigint',
+  },
+  tables: {
+    audit_events: {
+      types: {
+        json: {
+          tsType: 'Record<string, unknown>',
+          decorators: [{ name: '@column' }],
+        },
+      },
+    },
+  },
+} satisfies SchemaRules
+```
+
+JSON columns across the application are typed as `JSON<any>`, but JSON columns inside `audit_events` are typed as `Record<string, unknown>`.
+
+### Skipping columns
+
+To exclude specific columns from the generated schema class (for example, columns managed by a database trigger or a separate tool), list them in `skipColumns` on the table.
+
+```ts
+// title: database/schema_rules.ts
+export default {
+  tables: {
+    users: {
+      skipColumns: ['search_tsv', 'ltree_path'],
+    },
+  },
+} satisfies SchemaRules
+```
+
+The columns are left out of the generated class entirely. Queries through the model will still hit the table, but the columns are invisible to TypeScript and to Lucid's change tracking.
+
+### Combining rules
+
+Rules compose from least specific to most specific. Column rules refine type rules, per-table rules refine global rules, and decorator arguments accumulate.
+
+```ts
+// title: database/schema_rules.ts
+export default {
+  types: {
+    json: {
+      tsType: 'JSON<any>',
+      decorators: [{ name: '@column' }],
+      imports: [
+        { source: '#types/db', typeImports: ['JSON'] },
+      ],
+    },
+  },
+  columns: {
+    deleted_at: {
+      tsType: 'DateTime | null',
+      decorators: [{ name: '@column.dateTime' }],
+      imports: [
+        { source: 'luxon', namedImports: ['DateTime'] },
+      ],
     },
   },
   tables: {
     posts: {
       columns: {
-        /**
-         * Table-specific rule: The posts.metadata column has a specific shape
-         * that overrides the global JSON<any> type.
-         */
         metadata: {
-          decorator: '@column()',
           tsType: 'JSON<{ title?: string; description?: string; ogImage?: string }>',
+          decorators: [{ name: '@column' }],
           imports: [
-            {
-              source: '#types/db',
-              typeImports: ['JSON'],
-            },
+            { source: '#types/db', typeImports: ['JSON'] },
           ],
         },
       },
@@ -757,31 +742,40 @@ export default {
 } satisfies SchemaRules
 ```
 
-With these rules:
-- All JSON columns will use `JSON<any>` except `posts.metadata`
-- The `posts.metadata` column will use the specific type shape defined in the table rule
-- All bigint columns will use TypeScript `bigint` across all tables
+JSON columns across the application become `JSON<any>`, except `posts.metadata` which uses its specific shape. Every `deleted_at` column becomes a nullable `DateTime` regardless of which table it appears on.
 
 ### Customizing primary key detection
 
-By default, Lucid queries the database for primary key columns and applies `@column({ isPrimary: true })` with the appropriate TypeScript type. You can customize this behavior using the `primaryKey` function in your schema rules.
+By default, Lucid uses the first primary key column returned by the database and applies `@column({ isPrimary: true })` with the TypeScript type inferred from the column's database type (so an `integer` primary key becomes `number` and a `uuid` primary key becomes `string`). Override this with the `primaryKey` function, either globally or per table.
 
-The `primaryKey` function receives the table name, an array of primary key column names (as detected from the database), and the full columns metadata. It must return an object with the `columnName` to mark as primary and the `columnInfo` containing the decorator and type, or `undefined` to skip primary key handling for that table.
+The callback has the following signature:
 
-The following example shows the default behavior that Lucid uses when no custom `primaryKey` rule is defined. The function picks the first primary key column and applies `@column({ isPrimary: true })` with the type inferred from the column's database type:
+```ts
+type PrimaryKeyRule = (
+  tableName: string,
+  primaryKeys: string[],
+  columns: Record<string, DatabaseColumn>,
+) => { columnName: string; columnInfo: ColumnInfo } | undefined
+```
+
+`columns` is a map from column name to column metadata. Each entry has the shape:
+
+```ts
+type DatabaseColumn = {
+  type: string
+  nullable: boolean
+  defaultValue?: any
+  maxLength?: number | null
+}
+```
+
+Return `undefined` to let Lucid fall back to the default detection for that table.
 
 ```ts
 // title: database/schema_rules.ts
 import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
 
 export default {
-  types: {},
-  tables: {},
-
-  /**
-   * Customize how all primary keys are represented in
-   * the generated schema classes.
-   */
   primaryKey: (tableName, primaryKeys, columns) => {
     const columnName = primaryKeys[0]
     if (!columnName || !columns[columnName]) {
@@ -792,7 +786,7 @@ export default {
       columnName,
       columnInfo: {
         tsType: 'string',
-        decorator: '@column({ isPrimary: true })',
+        decorators: [{ name: '@column', args: { isPrimary: true } }],
         imports: [],
       },
     }
@@ -800,20 +794,13 @@ export default {
 } satisfies SchemaRules
 ```
 
-You can also define `primaryKey` rules at the table level. Table-level rules take precedence over the global rule. This is useful when different tables need different primary key handling.
+Table-level `primaryKey` rules override the global rule for that table only.
 
 ```ts
 // title: database/schema_rules.ts
-import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
-
 export default {
-  types: {},
   tables: {
     oauth_states: {
-      /**
-       * Custom primary key handling for the oauth_states table only.
-       * The global primaryKey rule is used for all other tables.
-       */
       primaryKey: (tableName, primaryKeys, columns) => {
         const columnName = primaryKeys[0]
         if (!columnName || !columns[columnName]) {
@@ -824,7 +811,7 @@ export default {
           columnName,
           columnInfo: {
             tsType: 'string',
-            decorator: '@column({ isPrimary: true, serializeAs: null })',
+            decorators: [{ name: '@column', args: { isPrimary: true } }],
             imports: [],
           },
         }
@@ -835,53 +822,28 @@ export default {
 ```
 
 :::note
-If you define a column-specific rule (in the `columns` section) for a column that happens to be the primary key, the column rule takes precedence and the `primaryKey` rule is skipped for that column.
+If you define a column rule (under `columns`) for the column that happens to be the primary key, the column rule wins and the `primaryKey` rule is skipped for that column.
 :::
 
-### When to regenerate schemas
+## Overriding columns on the model
 
-Schema rules are applied when Lucid generates schema classes. After modifying your schema rules file, you need to regenerate the schemas:
+Schema rules customize what the generator emits. Model-level overrides let an individual model refine or re-declare a column at the TypeScript level, in the model file itself.
 
-```bash
-node ace schema:generate
-```
+Reach for a model override when:
 
-The schemas are also regenerated automatically whenever you run migrations:
+- Only one model needs a type refinement, and a schema rule would be overkill.
+- You want custom read or write behavior on a column (via `consume`, `prepare`, or getters and setters) that does not belong in the generated file.
+- You want to add extra options to the decorator (`columnName`, `meta`) without editing schema rules.
 
-```bash
-node ace migration:run
-```
-
-Or rollback migrations:
-
-```bash
-node ace migration:rollback
-```
-
-## Model-level overrides
-
-While schema rules customize how Lucid generates schema classes, sometimes you need to override specific columns at the model level. This is useful when you want different type definitions for the same column in different models, or when you need to add custom logic to a column accessor.
-
-Model-level overrides work by re-declaring the column property in your model class. The TypeScript type system ensures that your override is compatible with the base schema class type.
-
-### Overriding JSON columns
-
-The most common use case for model overrides is refining generic JSON columns to specific interfaces:
+Override by re-declaring the column on your model with a compatible type.
 
 ```ts
 // title: app/models/post.ts
 import type { JSON } from '#types/db'
-import { PostsSchema } from '#database/schema'
 import { column } from '@adonisjs/lucid/orm'
+import { PostsSchema } from '#database/schema'
 
 export default class Post extends PostsSchema {
-  /**
-   * Override the metadata column from the schema class to provide
-   * a specific type shape instead of the generic JSON<any>.
-   * 
-   * The @column decorator must match the schema class decorator.
-   * The type can be more specific but must remain compatible.
-   */
   @column()
   declare metadata: JSON<Partial<{
     title: string
@@ -892,152 +854,189 @@ export default class Post extends PostsSchema {
 }
 ```
 
-Now when you access `post.metadata`, TypeScript knows the exact shape:
+The model inherits the schema class's column definition unless you override it, and the re-declared property shadows the one from the parent.
+
+### The `@column` options reference
+
+The `@column` decorator accepts an options object with the following fields. These apply to the plain `@column()` decorator and the date variants (`@column.date()`, `@column.dateTime()`).
+
+<dl>
+
+<dt>
+
+columnName
+
+</dt>
+
+<dd>
+
+The actual database column name when it cannot be derived from the property name. Rarely needed in generated classes (the generator already records this), but useful on model overrides when you want to rename the property without changing the database.
 
 ```ts
-const post = await Post.find(1)
-
-/**
- * TypeScript provides autocomplete for these properties
- * and ensures you handle the Partial<...> correctly.
- */
-if (post.metadata?.title) {
-  console.log(`SEO Title: ${post.metadata.title}`)
-}
+@column({ columnName: 'email_address' })
+declare email: string
 ```
 
-### Type compatibility constraints
+</dd>
 
-TypeScript enforces type compatibility when you override properties. You can make a type more specific, but you cannot change it to an incompatible type:
+<dt>
+
+isPrimary
+
+</dt>
+
+<dd>
+
+Marks the column as the primary key. Set by the generator automatically for detected primary keys. Declare explicitly on an override only when the generator could not determine the primary key.
+
+</dd>
+
+<dt>
+
+consume
+
+</dt>
+
+<dd>
+
+A function called when a row is read from the database. Transforms the raw column value into the shape your model uses. Common cases include JSON columns your driver returns as strings, numeric IDs you want as strings, or encrypted values that need decrypting.
 
 ```ts
-// ✅ Valid: string can be narrowed to a union type
-@column()
-declare status: 'draft' | 'published'  // Schema class has: string
-
-// ✅ Valid: any can be narrowed to a specific type
-@column()
-declare metadata: JSON<{ title: string }>  // Schema class has: any
-
-// ❌ Invalid: cannot change string to number
-@column()
-declare title: number  // Schema class has: string - TypeScript error!
-
-// ❌ Invalid: cannot change number to string
-@column()
-declare id: string  // Schema class has: number - TypeScript error!
+@column({
+  consume: (value) => typeof value === 'string' ? JSON.parse(value) : value,
+})
+declare preferences: Record<string, unknown>
 ```
 
-If you need to change a column's type fundamentally (like converting `string` to `number`), you must use schema rules instead. Schema rules generate the initial type, which models can then refine but not contradict.
+The callback receives the raw value, the attribute name, and the model instance.
 
-### Combining schema rules and model overrides
+</dd>
 
-The most flexible approach combines both techniques: use schema rules for global type changes, and use model overrides for model-specific refinements.
+<dt>
 
-For example, configure all JSON columns to use `JSON<any>` globally:
+prepare
+
+</dt>
+
+<dd>
+
+A function called before the value is sent to the database on insert or update. Inverse of `consume`. Use it to serialize, encrypt, or normalize values before persistence.
 
 ```ts
-// title: database/schema_rules.ts
-import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
-
-export default {
-  types: {
-    json: {
-      decorator: '@column()',
-      tsType: 'JSON<any>',
-      imports: [
-        {
-          source: '#types/db',
-          typeImports: ['JSON'],
-        },
-      ],
-    },
-  },
-  tables: {},
-} satisfies SchemaRules
+@column({
+  prepare: (value) => typeof value === 'object' ? JSON.stringify(value) : value,
+})
+declare preferences: Record<string, unknown>
 ```
 
-Then refine specific JSON columns in individual models:
+</dd>
+
+<dt>
+
+meta
+
+</dt>
+
+<dd>
+
+An arbitrary object of metadata to attach to the column. Lucid does not consume this field; use it for your own tooling (custom decorators, form generators, admin panels) that needs extra information per column.
 
 ```ts
-// title: app/models/post.ts
-import type { JSON } from '#types/db'
-import { PostsSchema } from '#database/schema'
-import { column } from '@adonisjs/lucid/orm'
-
-export default class Post extends PostsSchema {
-  @column()
-  declare metadata: JSON<{
-    seo?: { title: string; description: string }
-    social?: { ogImage: string; twitterCard: string }
-  }>
-}
+@column({ meta: { editableInAdmin: false } })
+declare internalId: string
 ```
+
+</dd>
+
+</dl>
+
+### Options specific to date columns
+
+The `@column.date` and `@column.dateTime` decorators accept every `@column` option above, plus two additional fields for automatic timestamping.
+
+<dl>
+
+<dt>
+
+autoCreate
+
+</dt>
+
+<dd>
+
+When `true`, Lucid sets the column to the current `DateTime` when a new row is inserted. Applied by the generator to `created_at` and `updated_at` columns.
+
+```ts
+@column.dateTime({ autoCreate: true })
+declare createdAt: DateTime | null
+```
+
+</dd>
+
+<dt>
+
+autoUpdate
+
+</dt>
+
+<dd>
+
+When `true`, Lucid sets the column to the current `DateTime` whenever the model is saved. Pair with `autoCreate` for `updatedAt`-style columns, or use alone for fields that track the most recent modification without being set on creation.
+
+```ts
+@column.dateTime({ autoCreate: true, autoUpdate: true })
+declare updatedAt: DateTime | null
+```
+
+</dd>
+
+</dl>
+
+### Custom getters and setters for a column
+
+When you need custom read or write behavior beyond what `consume` and `prepare` express, add a TypeScript getter or setter for the column on your model. Lucid still reads and writes the underlying attribute through `$attributes`, so getters and setters wrap that value without replacing Lucid's storage.
+
+The pattern is: declare a private backing field under `$attributes` and expose a getter or setter with the public name.
 
 ```ts
 // title: app/models/user.ts
-import type { JSON } from '#types/db'
-import { UsersSchema } from '#database/schema'
 import { column } from '@adonisjs/lucid/orm'
+import { UsersSchema } from '#database/schema'
 
 export default class User extends UsersSchema {
-  @column()
-  declare preferences: JSON<{
-    theme: 'light' | 'dark'
-    notifications: boolean
-    language: string
-  }>
+  @column({ columnName: 'avatar_path' })
+  declare avatarPath: string | null
+
+  get avatarUrl(): string | null {
+    return this.avatarPath
+      ? `https://cdn.example.com/${this.avatarPath}`
+      : null
+  }
 }
 ```
 
-This approach keeps your schema rules simple and maintainable while giving each model the type specificity it needs.
+For write-side transforms that still need to land in a column, `prepare` is usually a better fit since it runs on every insert and update automatically. Reach for a setter when the transform depends on other model properties at the time of assignment.
 
-## Configuration
+### Type compatibility constraints
 
-Schema generation is controlled through your database connection configuration. By default, schema generation is enabled for all connections, but you can customize this behavior in your database config file:
+TypeScript enforces that a re-declared property's type is compatible with the base class's type. You can narrow a type, but you cannot change it to an incompatible one.
 
 ```ts
-// title: config/database.ts
-import env from '#start/env'
-import { defineConfig } from '@adonisjs/lucid'
+// Valid: narrow string to a union type
+@column()
+declare status: 'draft' | 'published'
 
-const dbConfig = defineConfig({
-  connection: env.get('DB_CONNECTION'),
-  connections: {
-    postgres: {
-      client: 'pg',
-      connection: {
-        host: env.get('PG_HOST'),
-        port: env.get('PG_PORT'),
-        user: env.get('PG_USER'),
-        password: env.get('PG_PASSWORD'),
-        database: env.get('PG_DB_NAME'),
-      },
-      migrations: {
-        naturalSort: true,
-        paths: ['database/migrations'],
-      },
-      /**
-       * Enable or disable schema generation for this connection.
-       * When enabled, schemas are regenerated after running migrations.
-       */
-      schemaGeneration: {
-        enabled: true,
-      },
-    },
-  },
-})
+// Valid: narrow any to a specific type
+@column()
+declare metadata: JSON<{ title: string }>
 
-export default dbConfig
+// Invalid: cannot change string to number
+@column()
+declare title: number
+
+// Invalid: cannot change number to string
+@column()
+declare id: string
 ```
 
-The `schemaGeneration` option accepts:
-- `{ enabled: true }` - Schemas are generated automatically (default)
-- `{ enabled: false }` - Schema generation is disabled for this connection
-
-Disabling schema generation can be useful in specific scenarios:
-- Working with very large databases where schema generation is slow
-- Using a shared database where you don't control the schema
-- Temporarily disabling generation during development
-
-When schema generation is disabled, you can still generate schemas manually using the `schema:generate` command whenever you need to update them.
+When you need to fundamentally change a column's type, use a schema rule to set the correct type at generation time; the model can then further refine the generated type. See [Combining global and table rules](#combining-global-and-table-rules).

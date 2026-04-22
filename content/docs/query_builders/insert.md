@@ -1,359 +1,351 @@
+---
+summary: Construct INSERT queries with the insert query builder, including bulk inserts, upserts via onConflict, CTEs, and execution helpers.
+---
+
 # Insert query builder
 
-The insert query builder allows you to insert new rows into the database. You must use the [select query builder](./select.md) for **selecting**, **deleting** or **updating** rows.
+This guide covers the INSERT query builder. You will learn how to:
 
-You can get access to the insert query builder as shown in the following example:
+- Insert one or many rows into a table
+- Read back generated columns with `returning`
+- Resolve unique-constraint conflicts with `onConflict().ignore()` and `.merge()`
+- Compose inserts with common table expressions
+- Execute inserts inside transactions and against alternate schemas
+- Annotate queries for logs and observability
+- Inspect and debug the generated SQL
+
+## Overview
+
+The insert query builder is Lucid's fluent interface for building INSERT statements. For SELECT, UPDATE, and DELETE, see the [select query builder](./select.md) and [update and delete queries](./update_and_delete.md). For raw SQL, see the [raw query builder](./raw.md). For model-based inserts, prefer `Model.create()` and `model.save()`, which run through this builder under the hood and return typed model instances.
+
+Get a builder instance through the `db` service.
 
 ```ts
 import db from '@adonisjs/lucid/services/db'
 
-db.insertQuery()
-
-// selecting table also returns an instance of the query builder
-db.table('users')
+const query = db.insertQuery()  // builder without a table selected
+const usersQuery = db.table('users')  // shortcut: builder with the table selected
 ```
 
-## Methods/Properties
-Following is the list of methods and properties available on the Insert query builder class.
+Both forms return the same `InsertQueryBuilder` instance. `db.table(table)` is the shortcut you will reach for most often.
+
+## Inserting rows
 
 ### insert
-The `insert` method accepts an object of key-value pair to insert.
 
-The return value of the insert query is highly dependent on the underlying driver.
-
-- MySQL returns the id of the last inserted row.
-- SQLite returns the id of the last inserted row.
-- For PostgreSQL, MSSQL, and Oracle, you must use the `returning` method to fetch the value of the id.
+Insert a single row by passing an object of column-value pairs.
 
 ```ts
-db
-  .table('users')
-  .returning('id')
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
+// title: app/controllers/users_controller.ts
+import type { HttpContext } from '@adonisjs/core/http'
+import db from '@adonisjs/lucid/services/db'
+import hash from '@adonisjs/core/services/hash'
+
+export default class UsersController {
+  async store({ request }: HttpContext) {
+    const [user] = await db
+      .table('users')
+      .returning(['id', 'email'])
+      .insert({
+        email: request.input('email'),
+        password: await hash.make(request.input('password')),
+      })
+
+    return user
+  }
+}
 ```
 
+The return value of `insert` depends on the dialect, which is why most production code uses `returning` to make the result portable.
+
+| Dialect | Default return value |
+| --- | --- |
+| PostgreSQL | `[]` unless `returning` is set |
+| MSSQL | `[]` unless `returning` is set |
+| MySQL / MariaDB | `[insertId]` (the last inserted auto-increment ID) |
+| SQLite (better-sqlite3, SQLite 3.35+) | `[insertId]` by default; supports `returning` natively |
+| Oracle | `[]` unless `returning` is set |
+
 ### multiInsert
-The `multiInsert` method accepts an array of objects and inserts multiple rows at once.
+
+Insert several rows in a single statement by passing an array of objects.
 
 ```ts
-db
+// title: app/services/imports_service.ts
+import db from '@adonisjs/lucid/services/db'
+
+await db.table('users').multiInsert([
+  { email: 'virk@adonisjs.com', password_hash: '...' },
+  { email: 'romain@adonisjs.com', password_hash: '...' },
+])
+```
+
+The emitted SQL is one `INSERT INTO ... VALUES (...), (...), ...` statement, which is faster and atomically committed compared with looping `insert` calls. Different rows can include different keys; missing keys are filled with `NULL` (or the column's default when `useNullAsDefault` is off).
+
+`returning` works with `multiInsert` and yields one row per inserted record.
+
+```ts
+const inserted = await db
   .table('users')
+  .returning(['id', 'email'])
   .multiInsert([
-    {
-      username: 'virk',
-      email: 'virk@adonisjs.com',
-      password: 'secret',
-    },
-    {
-      username: 'romain',
-      email: 'romain@adonisjs.com',
-      password: 'secret',
-    }
+    { email: 'virk@adonisjs.com' },
+    { email: 'romain@adonisjs.com' },
   ])
 
-/**
-INSERT INTO "users"
-  ("email", "password", "username")
-values
-  ('virk@adonisjs.com', 'secret', 'virk'),
-  ('romain@adonisjs.com', 'secret', 'romain')
-*/
+inserted.forEach((row) => console.log(row.id, row.email))
 ```
 
 ### returning
-You can use the `returning` method with PostgreSQL, MSSQL, and Oracle databases to retrieve one or more columns' values.
+
+Set the `RETURNING` clause to read back generated columns from the inserted row(s). Supported on PostgreSQL, MSSQL, Oracle, and SQLite 3.35+ via `better-sqlite3`. MySQL does not support `RETURNING` and ignores the call; use the returned auto-increment ID or perform a follow-up SELECT.
 
 ```ts
-const rows = db
-  .table('users')
-  .returning(['id', 'username'])
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
+// Single column
+const [{ id }] = await db
+  .table('posts')
+  .returning('id')
+  .insert({ title: 'Hello', body: 'World' })
 
-console.log(rows[0].id, rows[0].username)
+// Multiple columns
+const [post] = await db
+  .table('posts')
+  .returning(['id', 'created_at'])
+  .insert({ title: 'Hello', body: 'World' })
+
+// All columns
+const [post] = await db
+  .table('posts')
+  .returning('*')
+  .insert({ title: 'Hello', body: 'World' })
 ```
 
-### onConflict
-The `onConflict` method allows you to specify an alternative behavior when a unique constraint violation occurs during an insert. It is supported in **PostgreSQL**, **MySQL**, and **SQLite3** databases. You can chain it with `ignore` to silently discard the conflicting row, or `merge` to perform an upsert.
+## Upserts with onConflict
 
-You can call `onConflict` without arguments, with a single column, or with an array of columns.
+`onConflict` lets you choose what happens when an insert violates a unique constraint. It is supported on PostgreSQL, MySQL, MariaDB, and SQLite. After calling `onConflict`, chain either `.ignore()` to silently discard the conflicting row or `.merge()` to update the existing row (an upsert).
 
-#### onConflict().ignore()
-Ignore the insert when a conflict occurs. This adds an `ON CONFLICT ... DO NOTHING` clause (or the equivalent for your database).
+Pass a column name, an array of column names, or no arguments at all (which applies to any unique constraint).
 
 ```ts
-db
+db.table('users').insert({ email }).onConflict('email').ignore()
+
+db.table('users').insert({ email }).onConflict(['email', 'tenant_id']).ignore()
+
+db.table('users').insert({ email }).onConflict().ignore()
+```
+
+### onConflict().ignore()
+
+Silently skip the insert when a conflict occurs. Emits `ON CONFLICT ... DO NOTHING` (or the dialect equivalent).
+
+```ts
+await db
   .table('users')
-  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
-  .onConflict('username')
+  .insert({ email: 'virk@adonisjs.com', name: 'Harminder' })
+  .onConflict('email')
   .ignore()
 
-/**
-INSERT INTO "users" ("email", "username")
-VALUES ('virk@adonisjs.com', 'virk')
-ON CONFLICT ("username") DO NOTHING
-*/
+// SQL:
+// INSERT INTO "users" ("email", "name") VALUES (?, ?)
+// ON CONFLICT ("email") DO NOTHING
 ```
 
-You can also specify multiple columns:
+The query resolves successfully whether or not the insert actually happened. Pair with `returning` if you need to detect which case occurred — only newly inserted rows appear in the result.
+
+### onConflict().merge()
+
+Upsert the row when a conflict occurs. Emits `ON CONFLICT ... DO UPDATE SET` (or the dialect equivalent).
+
+Without arguments, every column from the insert payload is updated.
 
 ```ts
-db
+await db
   .table('users')
-  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
-  .onConflict(['username', 'email'])
-  .ignore()
-```
-
-Or call `onConflict` without arguments to handle any conflict:
-
-```ts
-db
-  .table('users')
-  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
-  .onConflict()
-  .ignore()
-```
-
-#### onConflict().merge()
-Merge the conflicting row with the new values (upsert). This adds an `ON CONFLICT ... DO UPDATE SET` clause.
-
-When called without arguments, all inserted columns are updated:
-
-```ts
-db
-  .table('users')
-  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
-  .onConflict('username')
+  .insert({ email: 'virk@adonisjs.com', name: 'Harminder' })
+  .onConflict('email')
   .merge()
 
-/**
-INSERT INTO "users" ("email", "username")
-VALUES ('virk@adonisjs.com', 'virk')
-ON CONFLICT ("username")
-DO UPDATE SET "email" = EXCLUDED."email", "username" = EXCLUDED."username"
-*/
+// SQL:
+// INSERT INTO "users" ("email", "name") VALUES (?, ?)
+// ON CONFLICT ("email")
+// DO UPDATE SET "email" = EXCLUDED."email", "name" = EXCLUDED."name"
 ```
 
-You can specify a subset of columns to update on conflict:
+Pass an array of column names to update only a subset of columns on conflict.
 
 ```ts
-db
+await db
   .table('users')
-  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
-  .onConflict('username')
-  .merge(['email'])
+  .insert({ email: 'virk@adonisjs.com', name: 'Harminder', last_seen_at: now })
+  .onConflict('email')
+  .merge(['last_seen_at'])
 ```
 
-Or provide an object of key-value pairs to set specific values on conflict:
+Pass an object to set explicit values on conflict that differ from the insert payload.
 
 ```ts
-db
+await db
   .table('users')
-  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
-  .onConflict('username')
-  .merge({ email: 'updated@adonisjs.com' })
+  .insert({ email: 'virk@adonisjs.com', login_count: 1 })
+  .onConflict('email')
+  .merge({ login_count: db.raw('users.login_count + 1') })
 ```
+
+## Common table expressions
+
+CTEs let you compose subqueries with the insert. Useful when the rows you want to insert depend on data computed elsewhere.
 
 ### with
-The `with` method allows you to use CTE (Common table expression) with insert queries in **PostgreSQL**, **Oracle**, **SQLite3** and the **MSSQL** databases.
 
-```ts
-import db from '@adonisjs/lucid/services/db'
-
-db
-  .table('users')
-  .with('active_users', db.raw('select * from users where is_active = ?', [true]))
-  .insert({ username: 'virk' })
-```
-
-### withMaterialized/withNotMaterialized
-The `withMaterialized` and the `withNotMaterialized` methods allow you to use CTE (Common table expression) as materialized views with insert queries in **PostgreSQL** and **SQLite3** databases.
+Define a CTE that the insert can reference.
 
 ```ts
 db
-  .table('users')
-  .withMaterialized('active_users', db.raw('select * from users where is_active = 1'))
-  .insert({ username: 'virk' })
+  .table('user_audit_log')
+  .with('latest_login', (query) => {
+    query
+      .from('user_logins')
+      .select('user_id', db.raw('max(created_at) as logged_in_at'))
+      .groupBy('user_id')
+  })
+  .insert(/* ... */)
 ```
 
 ### withRecursive
-The `withRecursive` method creates a recursive CTE (Common table expression) for insert queries in **PostgreSQL**, **Oracle**, **SQLite3** and the **MSSQL** databases.
+
+Define a recursive CTE. Supported on PostgreSQL, MySQL 8+, SQLite 3.8+, MSSQL, and Oracle. See the [select query builder's withRecursive](./select.md#withrecursive) for a full walkthrough; the API on the insert builder is identical.
+
+### withMaterialized and withNotMaterialized
+
+PostgreSQL-specific hints that force the planner to materialize (or refuse to materialize) the CTE result.
 
 ```ts
 db
-  .table('users')
-  .withRecursive('tree', db.raw('select * from categories'))
-  .insert({ username: 'virk' })
+  .table('archive')
+  .withMaterialized('inactive_users', (query) => {
+    query.from('users').select('*').where('is_active', false)
+  })
+  .insert(/* ... */)
 ```
+
+## Executing the query
+
+The query builder is a `Promise`. `await` it to send the insert.
+
+```ts
+await db.table('users').insert({ email })
+```
+
+### Inside a transaction
+
+To run an insert inside a transaction, build the query directly off the transaction client. The `trx` object exposes the same `.table`, `.insertQuery`, and other entry points as the `db` service. See the [transactions guide](../guides/transactions.md) for the full pattern.
+
+```ts
+await db.transaction(async (trx) => {
+  const [user] = await trx
+    .table('users')
+    .returning(['id'])
+    .insert({ email: 'virk@adonisjs.com' })
+
+  await trx
+    .table('profiles')
+    .insert({ user_id: user.id, full_name: 'Harminder Virk' })
+})
+```
+
+## Annotating queries
+
+These helpers attach identifying information to the query, which is useful when reading slow query logs or processing `db:query` events in observability pipelines.
 
 ### comment
-The `comment` method adds an SQL comment to the query. This can be helpful for identifying queries in database logs and monitoring tools.
+
+Adds an SQL comment to the emitted query. The comment appears in the database's slow query log alongside the SQL, which makes it easy to grep for queries originating in a specific code path.
 
 ```ts
 db
   .table('users')
-  .comment('bulk user insert')
-  .insert({ username: 'virk', email: 'virk@adonisjs.com' })
+  .comment('signup endpoint')
+  .insert({ email: 'virk@adonisjs.com' })
 
-/**
-/* bulk user insert *​/ INSERT INTO "users" ("email", "username")
-VALUES ('virk@adonisjs.com', 'virk')
-*/
-```
-
-### debug
-The `debug` method allows enabling or disabling debugging at an individual query level. Here's a [complete guide](../guides/debugging.md) on debugging queries.
-
-```ts
-const rows = db
-  .table('users')
-  // highlight-start
-  .debug(true)
-  // highlight-end
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
-```
-
-### timeout
-Define the `timeout` for the query. An exception is raised after the timeout has been exceeded.
-
-The value of timeout is always in milliseconds.
-
-```ts
-db
-  .table('users')
-  // highlight-start
-  .timeout(2000)
-  // highlight-end
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
-```
-
-You can also cancel the query when using timeouts with MySQL and PostgreSQL.
-
-```ts
-db
-  .table('users')
-  .timeout(2000, { cancel: true })
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
-```
-
-### toSQL
-The `toSQL` method returns the query SQL and bindings as an object.
-
-```ts
-const output = db
-  .table('users')
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
-  // highlight-start
-  .toSQL()
-  // highlight-end
-
-console.log(output)
-```
-
-The `toSQL` object also has the `toNative` method to format the SQL query as per the database dialect in use.
-
-```ts
-const output = db
-  .table('users')
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
-  .toSQL()
-  .toNative()
-
-console.log(output)
-```
-
-### toQuery
-Returns the SQL query as a string with bindings applied to the placeholders.
-
-```ts
-const output = db
-  .table('users')
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
-  .toQuery()
-
-console.log(output)
-/**
-INSERT INTO "users"
-  ("email", "password", "username")
-values
-  ('virk@adonisjs.com', 'secret', 'virk')
-*/
-```
-
-## Helpful properties and methods
-Following is the list of properties and methods you may occasionally need when building something on top of the query builder.
-
-### client
-Reference to the instance of the underlying [database query client](https://github.com/adonisjs/lucid/blob/develop/src/query_client/index.ts).
-
-```ts
-const query = db.insertQuery()
-console.log(query.client)
-```
-
-### knexQuery
-Reference to the instance of the underlying KnexJS query.
-
-```ts
-const query = db.insertQuery()
-console.log(query.knexQuery)
+// SQL: /* signup endpoint */ INSERT INTO "users" ("email") VALUES (?)
 ```
 
 ### reporterData
-The query builder emits the `db:query` event and reports the query's execution time with the framework profiler.
 
-Using the `reporterData` method, you can pass additional details to the event and the profiler.
+Attach arbitrary metadata to the `db:query` event payload, accessible to listeners. Useful for tagging queries with request IDs, user IDs, or feature flags for observability.
 
 ```ts
-const query = db.table('users')
-
-await query
-  .reporterData({ userId: auth.user.id })
-  .insert({
-    username: 'virk',
-    email: 'virk@adonisjs.com',
-    password: 'secret',
-  })
+await db
+  .table('users')
+  .reporterData({ userId: auth.user.id, source: 'signup' })
+  .insert({ email: 'virk@adonisjs.com' })
 ```
 
-Within the `db:query` event, you can access the value of `userId` as follows.
-
 ```ts
-import emitter from '@adonisjs/lucid/services/emitter'
+// title: start/events.ts
+import emitter from '@adonisjs/core/services/emitter'
 
 emitter.on('db:query', (query) => {
-  console.log(query.userId)
+  console.log(query.userId, query.source)
 })
 ```
+
+See the [debugging guide](../guides/debugging.md) for the full `db:query` event payload.
+
+## Inspecting and debugging
+
+### toSQL
+
+Return a `{ sql, bindings }` object describing the SQL the query will execute, without running it. Call `.toNative()` on the result to see the SQL formatted for the current dialect (with the actual placeholder syntax that dialect uses).
+
+```ts
+const { sql, bindings } = db
+  .table('users')
+  .insert({ email: 'virk@adonisjs.com' })
+  .toSQL()
+
+const native = db
+  .table('users')
+  .insert({ email: 'virk@adonisjs.com' })
+  .toSQL()
+  .toNative()
+```
+
+### toQuery
+
+Return the query as a single interpolated string with bindings substituted. Convenient for ad-hoc inspection. Prefer `toSQL` + bindings when forwarding to logs to avoid quoting issues.
+
+```ts
+const sql = db.table('users').insert({ email: 'virk@adonisjs.com' }).toQuery()
+```
+
+### debug
+
+Enable debug output for this query only. The query is emitted on the `db:query` event when at least one listener is attached. See the [debugging guide](../guides/debugging.md) for the full debug workflow.
+
+```ts
+db.table('users').debug(true).insert({ email: 'virk@adonisjs.com' })
+```
+
+### timeout
+
+Abort the query if it runs longer than the given number of milliseconds. Pass `{ cancel: true }` on PostgreSQL and MySQL to cancel the underlying query rather than leaving it running on the server after the client times out.
+
+```ts
+db.table('users').timeout(5000).insert({ email })
+db.table('users').timeout(5000, { cancel: true }).insert({ email })
+```
+
+## Schema and escape hatches
+
+### withSchema
+
+Set a non-default schema for the insert (PostgreSQL, MSSQL).
+
+```ts
+db.table('users').withSchema('analytics').insert({ event: 'signup' })
+```
+
+### knexQuery
+
+Return the underlying Knex query builder. Use this when you need a Knex method that Lucid does not expose. The result is shaped by Knex rather than Lucid, so you lose Lucid's typed result. See [Drop to Knex](../guides/database_service.md#drop-to-knex) in the database service guide for the broader discussion.

@@ -1,731 +1,655 @@
+---
+summary: The table builder API for defining columns, indexes, constraints, and foreign keys inside createTable and alterTable callbacks.
+---
+
 # Table builder
 
-The table builder allows you to **create**, **drop**, or **rename** columns on a selected database table.
-
-You get access to the table builder instance by calling one of the following schema builder methods.
-
-```ts
-class UserSchema extends BaseSchema {
-  async up() {
-    // highlight-start
-    this.schema.createTable('users', (table) => {
-      console.log(table) // 👈 Table builder
-    })
-
-    this.schema.table('users', (table) => {
-      console.log(table) // 👈 Table builder
-    })
-    // highlight-end
-  }
-}
-```
-
-
-## dropColumn
-Drop a column by its name.
-
-```ts
-this.schema.table('users', (table) => {
-  table.dropColumn('name')
-})
-```
-
-## dropColumns
-Drop more than one column by providing multiple arguments.
-
-```ts
-this.schema.table('users', (table) => {
-  table.dropColumns('first_name', 'last_name')
-})
-```
-
-## renameColumn
-Rename a column. The method accepts the existing column name as the first argument and the new name as the second argument.
-
-```ts
-this.schema.table('users', (table) => {
-  table.renameColumn('name', 'full_name')
-})
-```
-
-## increments
-
-Adds an auto-incrementing column. The column is also marked as the primary key unless disabled explicitly.
-
-- In PostgreSQL, the column has the `serial` data type.
-- In Amazon Redshift, it is an `integer indentity (1,1)`.
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.increments('id')
-})
-```
-
-Define an incrementing column, but do not mark it as the primary key.
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.increments('other_id', { primaryKey: false })
-})
-```
-
-## integer
-
-Add an integer column.
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.integer('visits')
-})
-```
-
-## bigInteger
-Adds a `bigint` column in MYSQL and PostgreSQL. For all other database drivers, it defaults to a normal integer.
-
-:::note
-BigInt column values are returned as a string in query results.
-:::
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.bigInteger('visits')
-})
-```
-
-## text
-
-Adds a text column to the database. You can optionally define the text datatype to be `mediumtext` or `longtext`. The data type is ignored if the underlying driver is not MySQL.
-
-```ts
-this.schema.createTable('posts', (table) => {
-  table.text('content_markdown', 'longtext')
-})
-```
-
-## string
-
-Add a string column with an optional length. The length defaults to `255`, if not specified.
-
-```ts
-this.schema.createTable('posts', (table) => {
-  table.string('title')
-
-  // Explicit length
-  table.string('title', 100)
-})
-```
-
-## float
-
-Adds a float column, with **optional precision (defaults to 8)** and **scale (defaults to 2)**.
-
-```ts
-this.schema.createTable('products', (table) => {
-  table.float('price')
-
-  /**
-   * Explicit precision and scale
-   */
-  table.float('price', 8, 2)
-})
-```
-
-## decimal
-
-Adds a decimal column, with **optional precision (defaults to 8)** and **scale (defaults to 2)**.
-
-Specifying `null` as precision creates a decimal column that can store numbers of precision and scale. (Only supported for Oracle, SQLite, Postgres)
-
-```ts
-this.schema.createTable('products', (table) => {
-  table.decimal('price')
-
-  /**
-   * Explicit precision and scale
-   */
-  table.decimal('price', 8, 2)
-})
-```
-
-## boolean
-
-Adds a boolean column. Many databases represent `true` and `false` as `1` and `0` and return the same value during SQL queries.
-
-```ts
-this.schema.createTable('posts', (table) => {
-  table.boolean('is_published')
-})
-```
-
-## date
-Adds a date column to the database table.
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.date('dob')
-})
-```
-
-## dateTime
-Adds a DateTime column to the database table. The method accepts the column name as the first argument, alongside the options object to configure the `precision` and use the `timestampz` data type.
-
-- You can enable/disable the `timestampz` data type for PostgreSQL. It is enabled by default.
-- You can define the column precision for **MySQL 5.6+**.
-
-```ts
-this.schema.createTable('users', (table) => {
-  table
-    .dateTime('some_time', { useTz: true })
-    .defaultTo(this.now())
-
-  // Or define the precision
-  table
-    .dateTime('some_time', { precision: 6 })
-    .defaultTo(this.now(6))
-})
-```
-
-## time
-Adds a time column with optional precision for MySQL. It is not supported on Amazon Redshift.
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.time('some_time', { precision: 6 })
-})
-```
-
-## timestamp
-Adds a timestamp column to the database table. The method accepts the column name as the first argument, alongside the options object to configure the `precision` and use the `timestampz` data type.
-
-- You can enable/disable the `timestampz` data type for PostgreSQL. It is enabled by default.
-- Setting `useTz = true` will use the `DATETIME2` data type for MSSQL. It is disabled by default.
-- You can define the column precision for **MySQL 5.6+**.
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.timestamp('created_at')
-
-  // Enable timestampz and DATETIME2 for MSSQL
-  table.timestamp('created_at', { useTz: true })
-
-  // Use precision with MySQL
-  table.timestamp('created_at', { precision: 6 })
-})
-```
-
-## timestamps
-Adds `created_at` and `updated_at` columns to the database table.
-
-:::warning
-
-Since AdonisJS uses Knex.js under the hood, your editor autocomplete feature will list the `timestamps` method in list of available methods.
-
-However, we recommend not using this method and instead use the `timestamp` method for following reasons.
-
-- The `timestamps` method is not chainable. Meaning you cannot add additional constraints like `index` or `nullable` to the column.
-- You can create columns of type `timestampz` or `Datetime2`.
-
-:::
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.timestamps()
-})
-```
-
-By default, the `timestamps` method creates a **DATETIME** column. However, you can change it to a **TIMESTAMP** column by passing `true` as the first argument.
-
-```ts
-this.schema.createTable('users', (table) => {
-  /**
-   * Creates timestamp column
-   */
-  table.timestamps(true)
-})
-```
-
-```ts
-this.schema.createTable('users', (table) => {
-  /**
-   * Creates timestamp column
-   * +
-   * Set the default value to "CURRENT_TIMESTAMP"
-   */
-  table.timestamps(true, true)
-})
-```
-
-## binary
-Adds a binary column. The method accepts the column name as the first argument, with an optional length as the second argument (applicable for MySQL only).
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.binary('binary_column')
-})
-```
-
-## enum / enu
-
-Adds an enum column to the database. The method accepts the column name as the first argument, an array of enum options as the second argument, and an optional object of options as the third argument.
-
-- In PostgreSQL, you can use the native enum type by setting the `options.useNative` value to true. Also, make sure to provide a unique name enum name via `options.enumName`.
-- In PostgreSQL, we will create the enum before the column. If the enum type already exists, then you must set `options.existingType` to true.
-- In Amazon Redshift, unchecked varchar(255) data type is used.
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.enu('account_status', ['PENDING', 'ACTIVE', 'SUSPENDED'], {
-    useNative: true,
-    enumName: 'user_account_status',
-    existingType: false,
-  })
-})
-```
-
-You can also specify the PostgreSQL schema for the enum type.
-
-```ts
-table.enu('account_status', ['PENDING', 'ACTIVE', 'SUSPENDED'], {
-    useNative: true,
-    enumName: 'user_account_status',
-    existingType: false,
-    schemaName: 'public' // 👈
-  })
-```
-
-Make sure to drop the enum when dropping the table.
-
-```ts
-this.schema.raw('DROP TYPE IF EXISTS "user_account_status"')
-this.schema.dropTable('users')
-```
-
-## json
-Adds a JSON column, using the built-in JSON type in **PostgreSQL**, **MySQL** and **SQLite**, defaulting to a text column in older versions or in unsupported databases.
-
-```ts
-this.schema.createTable('projects', (table) => {
-  table.json('settings')
-})
-```
-
-## jsonb
-Same as the `json` method but uses the native `jsonb` data type (if possible).
-
-```ts
-this.schema.createTable('projects', (table) => {
-  table.jsonb('settings')
-})
-```
-
-## uuid
-Adds a UUID column. The method accepts the column name as the only argument.
-
-- Uses the built-in UUID type in PostgreSQL
-- Uses the `char(36)` for all other databases
-
-```ts
-this.schema.createTable('users', (table) => {
-  table.uuid('user_id')
-})
-```
-
-Make sure also to create the UUID extension for PostgreSQL. You can also do it inside a dedicated migration file as follows:
+This guide is the reference for the table builder API used inside `createTable` and `alterTable` callbacks. You will learn how to:
+
+- Add columns of every supported type
+- Apply column modifiers like `notNullable`, `defaultTo`, `unsigned`, and indexes
+- Define foreign keys, with cascade rules and deferrable constraints
+- Add check constraints for value validation at the database layer
+- Create composite indexes and constraints at the table level
+- Alter, drop, and rename columns
+- Apply table-level options like engine and charset
+
+## Overview
+
+The table builder is the API for defining column-level and table-level structure inside a `createTable` or `alterTable` callback on the schema builder.
 
 ```ts
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
-export default class SetupExtensions extends BaseSchema {
+export default class extends BaseSchema {
   async up() {
-    this.schema.raw('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
-  }
-
-  async down() {
-    this.schema.raw('DROP EXTENSION IF EXISTS "uuid-ossp"')
+    this.schema.createTable('posts', (table) => {
+      table.increments('id')
+      table.string('title').notNullable()
+      table.text('body')
+      table.integer('user_id').unsigned().references('users.id').onDelete('CASCADE')
+      table.timestamps(true, true)
+    })
   }
 }
 ```
 
-## comment
-Sets the comment for the table. Accepts the comment value as the only argument.
+For the operations on the schema itself (`createTable`, `alterTable`, `dropTable`, etc.), see the [schema builder reference](./schema_builder.md). For migration-class concerns like `this.defer`, `this.now()`, and transaction control, see the [migrations introduction](./introduction.md).
+
+## Column types
+
+### increments
+
+Auto-incrementing integer column. Marked as the primary key by default.
 
 ```ts
-this.schema.createTable('users', (table) => {
-  table.comment('Manages the app users')
+table.increments('id')
+table.increments('id', { primaryKey: false }) // skip auto primary key
+```
+
+PostgreSQL uses `serial`; MySQL uses `int unsigned auto_increment`; Redshift uses `integer identity (1,1)`.
+
+### bigIncrements
+
+Auto-incrementing `bigint` column. Marked as the primary key by default.
+
+```ts
+table.bigIncrements('id')
+```
+
+### integer
+
+Standard integer column.
+
+```ts
+table.integer('view_count')
+```
+
+### tinyint, smallint, mediumint, bigInteger
+
+Smaller and larger integer types. `bigInteger` is `bigint` on PostgreSQL and MySQL; on dialects without a native bigint it falls back to a regular integer. `bigint` is an alias for `bigInteger`.
+
+```ts
+table.tinyint('flag_byte')
+table.smallint('priority')
+table.mediumint('view_bucket')   // MySQL-only
+table.bigInteger('snowflake_id')
+```
+
+Bigint values are returned as strings in query results to avoid JavaScript precision loss.
+
+### float
+
+Floating-point column with optional precision (default 8) and scale (default 2).
+
+```ts
+table.float('rating')
+table.float('price', 8, 2)
+```
+
+### double
+
+Double-precision floating-point column. Same precision and scale arguments as `float`.
+
+```ts
+table.double('balance', 14, 4)
+```
+
+### decimal
+
+Fixed-precision decimal column. Pass `null` as precision to allow arbitrary precision (PostgreSQL, SQLite, Oracle).
+
+```ts
+table.decimal('price')
+table.decimal('price', 8, 2)
+table.decimal('amount', null)   // arbitrary precision
+```
+
+### boolean
+
+Boolean column. Many dialects represent booleans as `0`/`1` and return them as such.
+
+```ts
+table.boolean('is_published')
+```
+
+### string
+
+Variable-length string column with optional length (defaults to 255).
+
+```ts
+table.string('title')
+table.string('title', 100)
+```
+
+### text
+
+Long-form text column. Pass `'mediumtext'` or `'longtext'` as the second argument on MySQL; ignored on other dialects.
+
+```ts
+table.text('body')
+table.text('body', 'longtext')
+```
+
+### date
+
+Date column (no time component).
+
+```ts
+table.date('dob')
+```
+
+### time
+
+Time column (no date). MySQL accepts a precision option.
+
+```ts
+table.time('starts_at')
+table.time('starts_at', { precision: 6 })
+```
+
+### dateTime
+
+DateTime column with optional timezone and precision. `dateTime` and `datetime` are aliases.
+
+```ts
+table.dateTime('starts_at', { useTz: true })
+table.dateTime('starts_at', { precision: 6 }).defaultTo(this.now(6))
+```
+
+`useTz: true` produces `timestamptz` on PostgreSQL and `DATETIME2` on MSSQL.
+
+### timestamp
+
+Timestamp column. Same options object as `dateTime`.
+
+```ts
+table.timestamp('created_at')
+table.timestamp('created_at', { useTz: true })
+table.timestamp('created_at', { precision: 6 })
+```
+
+### timestamps
+
+Convenience method that adds `created_at` and `updated_at` columns. The signature is `timestamps(useTimestamps, defaultToNow)`.
+
+```ts
+table.timestamps()                // DATETIME columns, no defaults
+table.timestamps(true)            // TIMESTAMP columns, no defaults
+table.timestamps(true, true)      // TIMESTAMP columns, default CURRENT_TIMESTAMP
+```
+
+:::tip
+For applications that need indexes, custom precision, or timezone-aware columns, prefer two `table.timestamp(...)` calls over `timestamps`. The `timestamps` shortcut returns void, so you cannot chain modifiers on the columns it creates.
+:::
+
+### binary
+
+Binary blob column with an optional length argument (MySQL only).
+
+```ts
+table.binary('document')
+table.binary('document', 1024)
+```
+
+### uuid
+
+UUID column. Uses the native `uuid` type on PostgreSQL and `char(36)` elsewhere.
+
+```ts
+table.uuid('id').primary().defaultTo(this.raw('gen_random_uuid()'))
+```
+
+On older PostgreSQL versions, install the `uuid-ossp` extension in a separate migration before using `uuid` columns:
+
+```ts
+this.schema.raw('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
+```
+
+### json
+
+JSON column. Uses the native `json` type on PostgreSQL, MySQL, and SQLite, and falls back to a text column on dialects without JSON support.
+
+```ts
+table.json('settings')
+```
+
+### jsonb
+
+JSON column stored in a binary representation that supports indexed access. PostgreSQL only; falls back to `json` elsewhere.
+
+```ts
+table.jsonb('preferences')
+```
+
+### enum / enu
+
+Enumerated column. Pass the column name, the array of allowed values, and an options object.
+
+```ts
+table.enu('status', ['draft', 'published', 'archived'])
+```
+
+PostgreSQL supports a native enum type when you opt in with `useNative` and provide a unique `enumName`. Set `existingType: true` when the type already exists in the database.
+
+```ts
+table.enu('status', ['draft', 'published', 'archived'], {
+  useNative: true,
+  enumName: 'post_status',
+  existingType: false,
+  schemaName: 'public',
 })
 ```
 
-## engine
-
-Sets the engine for the database table. The method accepts the engine name as the only argument.
-
-- The method is only available within a `createTable` call.
-- The engine is only applicable to **MySQL** and ignored for other databases.
+When dropping a table that uses a native enum type, drop the type as well to avoid leaving an orphan:
 
 ```ts
-this.schema.createTable('users', (table) => {
-  table.engine('MyISAM')
-})
+this.schema.raw('DROP TYPE IF EXISTS "post_status"')
+this.schema.dropTable('posts')
 ```
 
-## charset
+`enu` is the older name; `enum` is an alias added because `enum` is a reserved keyword in some build setups.
 
-Sets the charset for the database table. The method accepts the charset value as the only argument.
+### geometry, geography, point
 
-- The method is only available within a `createTable` call.
-- The charset is only applicable to **MySQL** and ignored for other databases.
+Spatial columns. Available on PostgreSQL (with PostGIS), MySQL, and other dialects with spatial support.
 
 ```ts
-this.schema.createTable('users', (table) => {
-  table.charset('utf8')
-})
+table.geometry('shape')
+table.geography('coverage_area')
+table.point('location')
 ```
 
-## collate
+### specificType
 
-Sets the collation for the database table. The method accepts the collation value as the only argument.
-
-- The method is only available within a `createTable` call.
-- The collation is only applicable to **MySQL** and ignored for other databases.
+Define a column with a raw type string when the builder does not expose the type natively.
 
 ```ts
-this.schema.createTable('users', (table) => {
-  table.collate('utf8_unicode_ci')
-})
+table.specificType('mac_address', 'macaddr')
+table.specificType('tags', 'text[]')   // PostgreSQL array
 ```
 
-## inherits
-Set the parent table for inheritance. The method accepts the parent table name as the only argument.
+## Column modifiers
 
-- The method is only available within a `createTable` call.
-- The `inherits` is only applicable to **PostgreSQL** and ignored for other databases.
+The methods below are chainable on the result of any column-type method. They modify the column being created (or altered).
+
+### defaultTo
+
+Set a default value for inserts.
 
 ```ts
-this.schema.createTable('capitals', (table) => {
-  table.inherits('cities')
-})
+table.boolean('is_published').defaultTo(false)
+table.timestamp('created_at').defaultTo(this.now())
+table.uuid('id').defaultTo(this.raw('gen_random_uuid()'))
 ```
 
-## specificType
-Create a column by defining its type as a raw string. The method allows you to create a database column, which is not covered by the standard table builder API.
-
-The first argument is the column name, and the second argument is column type.
+On MSSQL, pass a `constraintName` option to control the generated default constraint's name:
 
 ```ts
-this.schema.createTable('users', (table) => {
-  table.specificType('mac_address', 'macaddr')
-})
+table.boolean('is_published').defaultTo(false, { constraintName: 'df_posts_is_published' })
 ```
 
-## index
-Adds an index to a table over the given columns. You must create the table before defining the index.
+### notNullable and nullable
 
-- The method accepts an array of columns as the first argument.
-- An optional index name as the second argument
-- And an optional index type as the third argument. The index type is only applicable for PostgreSQL and MySQL databases.
+Mark the column as `NOT NULL` or `NULL`.
 
 ```ts
-this.schema.alterTable('users', (table) => {
-  table.index(['first_name', 'last_name'], 'user_name_index')
-})
+table.string('email').notNullable()
+table.text('bio').nullable()
 ```
 
-## dropIndex
+When **altering** an existing column, prefer `setNullable` and `dropNullable` (covered below) so the constraint change is explicit.
 
-Drop an existing index from the table columns. The method accepts columns as the first argument and an optional index name as the second argument.
+### unsigned
+
+Mark a numeric column as unsigned. Has no effect on PostgreSQL, which does not support unsigned integers.
 
 ```ts
-this.schema.alterTable('users', (table) => {
-  table.dropIndex(['first_name', 'last_name'], 'user_name_index')
-})
+table.integer('user_id').unsigned()
 ```
 
-## unique
+### primary
 
-Adds a unique index to a table over the given columns. A default index name using the columns is used unless `indexName` is specified.
+Mark the column as the primary key. Pass an optional options object with `constraintName` and `deferrable`.
 
 ```ts
-this.schema.alterTable('posts', (table) => {
-  table.unique(['slug', 'tenant_id'])
-})
+table.uuid('id').primary()
+table.uuid('id').primary({ constraintName: 'posts_pk' })
 ```
 
-## foreign
+For composite primary keys, use the table-level `table.primary([...])` shown below.
 
-Adds a foreign key constraint to a table for existing columns. Make sure the table already exists when using the `foreign` method.
+### unique
 
-- The methods accepts one or more column names as the first argument.
-- You can define a custom `foreignKeyName` as the second argument. If not specified, the column names are used to generate it.
+Add a unique index on the column. Pass an optional options object with `indexName` and `deferrable`.
 
 ```ts
-this.schema.alterTable('posts', (table) => {
-  table.foreign('user_id').references('users.id')
-})
+table.string('email').unique()
+table.string('email').unique({ indexName: 'users_email_unique' })
 ```
 
-You can also chain the `onDelete` and `onUpdate` methods to define the triggers.
+For composite unique indexes, use the table-level `table.unique([...])`.
+
+### index
+
+Add an index on the column. Pass an optional index name and an optional index type (PostgreSQL and MySQL).
+
+```ts
+table.string('slug').index()
+table.string('slug').index('posts_slug_idx')
+table.json('payload').index('posts_payload_gin', 'gin')
+```
+
+### first and after
+
+Position a column at the start of the table (`first`) or after a specific column (`after`). MySQL only.
+
+```ts
+table.string('email').first()
+table.string('avatar_url').after('password')
+```
+
+### comment
+
+Set a comment on the column.
+
+```ts
+table.string('avatar_url').comment('Stored as a relative path')
+```
+
+### collate
+
+Set the collation for a column. MySQL only.
+
+```ts
+table.string('email').collate('utf8_unicode_ci')
+```
+
+## Foreign keys
+
+Foreign keys can be declared inline as a column modifier or table-level for composite keys. Both shapes share the same downstream methods.
+
+### references and inTable
+
+Define the referenced column and table. The shorthand `references('table.column')` combines both.
+
+```ts
+// Long form
+table.integer('user_id').references('id').inTable('users')
+
+// Shorthand
+table.integer('user_id').references('users.id')
+
+// Table-level (allows composite keys and named constraints)
+table.foreign('user_id').references('users.id')
+table.foreign(['tenant_id', 'user_id']).references(['tenant_id', 'id']).inTable('users')
+```
+
+### onDelete and onUpdate
+
+Specify the action to take when the referenced row is deleted or updated. Standard SQL actions: `CASCADE`, `SET NULL`, `RESTRICT`, `NO ACTION`, `SET DEFAULT`.
 
 ```ts
 table
-  .foreign('user_id')
+  .integer('user_id')
   .references('users.id')
   .onDelete('CASCADE')
+  .onUpdate('RESTRICT')
 ```
 
-## dropForeign
-Drop a pre-existing foreign key constraint. The method accepts one or more columns as the first argument and an optional foreign key name as the second argument.
+### withKeyName
+
+Override the auto-generated foreign key constraint name. Useful when you need to drop or alter the constraint by name later.
 
 ```ts
-this.schema.alterTable('posts', (table) => {
-  table.dropForeign('user_id')
-})
+table
+  .integer('user_id')
+  .references('users.id')
+  .withKeyName('posts_user_id_fk')
 ```
 
-## dropUnique
-Drop a pre-existing unique index. The method accepts an array of string(s) representing column names as the first argument and an optional index name as the second argument.
+### deferrable
+
+Mark the foreign key as deferrable, so the constraint check is delayed until commit time. PostgreSQL only. Accepts `'deferred'`, `'immediate'`, or `'not deferrable'`.
 
 ```ts
-this.schema.alterTable('posts', (table) => {
-  table.dropUnique(['email'])
-})
+table
+  .integer('user_id')
+  .references('users.id')
+  .deferrable('deferred')
 ```
 
-## dropPrimary
-Drop a pre-existing primary key constraint. The method accepts an optional constraint name (defaults to `tablename_pkey`).
+## Check constraints
+
+Check constraints enforce a predicate on every inserted or updated row. Available on PostgreSQL, MySQL 8+, MSSQL, SQLite, and Oracle. Each method accepts an optional constraint name as the last argument.
+
+### checkPositive, checkNegative
 
 ```ts
-this.schema.alterTable('posts', (table) => {
-  table.dropPrimary()
-})
+table.integer('balance').checkPositive()
+table.integer('temperature_below_zero').checkNegative('temp_must_be_negative')
 ```
 
-## setNullable
-Set the column to be nullable.
+### checkIn and checkNotIn
 
 ```ts
-this.schema.alterTable('posts', (table) => {
-  table.setNullable('full_name')
-})
+table.string('status').checkIn(['draft', 'published', 'archived'])
+table.string('locale').checkNotIn(['xx', 'yy'], 'locale_blacklist')
 ```
 
-## dropNullable
-Drop the nullable constraint from the column.
+### checkBetween
 
-:::warning
-The operation will fail, when the column already has null values.
-:::
+Pass a `[min, max]` tuple for a single range, or an array of tuples for multiple acceptable ranges.
 
 ```ts
-this.schema.alterTable('posts', (table) => {
-  table.dropNullable('full_name')
-})
+table.integer('rating').checkBetween([1, 5])
+table.integer('hour').checkBetween([[0, 11], [13, 23]])  // skip 12
 ```
 
-## Chainable methods
+### checkLength
 
-Following is the list of methods you can chain on the schema building methods as modifiers to the column.
+```ts
+table.string('handle').checkLength('>=', 3)
+table.string('handle').checkLength('<=', 30, 'handle_max_length')
+```
+
+### checkRegex
+
+Regex check, written as a SQL-compatible pattern (dialect-specific syntax).
+
+```ts
+table.string('handle').checkRegex('^[a-z0-9_]+$')
+```
+
+### dropChecks
+
+Drop every check constraint defined on the column.
+
+```ts
+table.dropChecks()
+```
+
+## Table-level constraints
+
+These methods sit on the table builder rather than chained off a column. Use them for composite indexes, composite foreign keys, and named constraints.
+
+### primary
+
+Define a single or composite primary key.
+
+```ts
+table.primary(['tenant_id', 'user_id'])
+table.primary(['tenant_id', 'user_id'], { constraintName: 'tenant_user_pk' })
+```
+
+### unique
+
+Define a single or composite unique index.
+
+```ts
+table.unique(['slug', 'tenant_id'])
+table.unique(['slug', 'tenant_id'], { indexName: 'posts_slug_tenant_unique' })
+```
+
+### index
+
+Add an index across one or more columns.
+
+```ts
+table.index(['first_name', 'last_name'])
+table.index(['first_name', 'last_name'], 'users_full_name_idx')
+table.index(['payload'], 'posts_payload_gin', 'gin')   // PostgreSQL: index type
+```
+
+### foreign
+
+Add a foreign key constraint, including composite keys. The same `references`, `inTable`, `onDelete`, `onUpdate`, `withKeyName`, and `deferrable` methods are available.
+
+```ts
+table.foreign('user_id').references('users.id').onDelete('CASCADE')
+table
+  .foreign(['tenant_id', 'user_id'])
+  .references(['tenant_id', 'id'])
+  .inTable('users')
+  .withKeyName('posts_tenant_user_fk')
+```
+
+## Altering existing columns
+
+The methods below are valid inside `alterTable` (or `this.schema.table(...)`).
 
 ### alter
 
-Marks the column as an alters/modify instead of the default add. The method is not supported by SQLite or Amazon Redshift drivers.
-
-:::note
-
-The alter statement is not incremental. You must redefine the constraints that you want to apply to the column.
-
-:::
+Mark a column definition as an alteration rather than an addition. The alteration is non-incremental: you must restate every constraint you want the column to keep.
 
 ```ts
 this.schema.alterTable('posts', (table) => {
-  // drops both NOT NULL constraint and the default value (if applied earlier)
-  table.integer('age').alter()
+  table.text('body').notNullable().alter()
 })
 ```
 
-## index
-
-Define an index for the current column. The method accepts the following two optional arguments.
-
-- An optional index name as the first argument.
-- And an optional index type as the second argument. The index type is only applicable for PostgreSQL and MySQL databases.
+Pass options to control which aspects are altered:
 
 ```ts
-this.schema.table('posts', (table) => {
-  table.string('slug').index('posts_slug')
-})
+table.text('body').alter({ alterNullable: true, alterType: false })
 ```
 
-## primary
+`alter` is not supported on SQLite or Redshift.
 
-Mark the current column as the primary key. Optionally, you can define the constraint name as the first argument.
+### setNullable and dropNullable
 
-On Amazon Redshift, all columns included in a primary key must be not nullable.
-
-```ts
-this.schema.table('posts', (table) => {
-  table.integer('id').primary()
-})
-```
-
-If you want to define a composite primary key, you must use the `table.primary` method.
-
-```ts
-this.schema.table('posts', (table) => {
-  table.primary(['slug', 'tenant_id'])
-})
-```
-
-## unique
-Mark the current column as unique. On Amazon Redshift, this constraint is not enforced, but the query planner uses it.
-
-```ts
-this.schema.table('users', (table) => {
-  table.string('email').unique()
-})
-```
-
-## references
-Define the column that the current column references as a foreign key.
-
-```ts
-this.schema.table('posts', (table) => {
-  table.integer('user_id').references('id').inTable('users')
-})
-```
-
-You can also define the `tableName.columnName` together and remove the `inTable` method all together.
-
-```ts
-this.schema.table('posts', (table) => {
-  table.integer('user_id').references('users.id')
-})
-```
-
-## inTable
-Define the table for the foreign key referenced column.
-
-```ts
-this.schema.table('posts', (table) => {
-  table.integer('user_id').references('id').inTable('users')
-})
-```
-
-## onDelete
-Define the `onDelete` command for the foreign key. The command is expressed as a string value.
-
-```ts
-this.schema.table('posts', (table) => {
-  table
-    .integer('user_id')
-    .references('id')
-    .inTable('users')
-    .onDelete('CASCADE')
-})
-```
-
-## onUpdate
-Define the `onUpdate` command for the foreign key. The command is expressed as a string value.
-
-```ts
-this.schema.table('posts', (table) => {
-  table
-    .integer('user_id')
-    .references('id')
-    .inTable('users')
-    .onUpdate('RESTRICT')
-})
-```
-
-## defaultTo
-Define the default value for the column to be used during the insert.
-
-In MSSQL a constraintName option may be passed to ensure a specific constraint name:
-
-```ts
-this.schema.table('posts', (table) => {
-  table.boolean('is_published').defaultTo(false)
-
-  // For MSSQL
-  table
-    .boolean('is_published')
-    .defaultTo(false, { constraintName: 'df_table_value' })
-})
-```
-
-## unsigned
-Mark the current column as unsigned.
-
-```ts
-this.schema.table('posts', (table) => {
-  table
-    .integer('user_id')
-    .unsigned() // 👈
-    .references('id')
-    .inTable('users')
-})
-```
-
-## notNullable
-Mark the current column as NOT nullable.
-
-:::note
-Consider using [dropNullable](#dropnullable) method when altering the column.
-:::
-
-```ts
-this.schema.table('users', (table) => {
-  table.integer('email').notNullable()
-})
-```
-
-## nullable
-Mark the current column as nullable.
-
-:::note
-Consider using [setNullable](#setnullable) method when altering the column.
-:::
-
-```ts
-this.schema.table('users', (table) => {
-  table.text('bio').nullable()
-})
-```
-
-## first
-Sets the column to be inserted on the first position, only used in MySQL alter tables.
+Toggle the nullability of an existing column without re-defining its type.
 
 ```ts
 this.schema.alterTable('users', (table) => {
-  table.string('email').first()
+  table.setNullable('phone')
+  table.dropNullable('email')
 })
 ```
 
-## after
-Sets the column to be inserted after another, only used in MySQL alter tables.
+`dropNullable` fails when the column already contains `NULL` values; backfill before applying.
+
+### renameColumn
+
+Rename a column.
 
 ```ts
-this.schema.alterTable('users', (table) => {
-  table.string('avatar_url').after('password')
-})
+table.renameColumn('name', 'full_name')
 ```
 
-## comment
-Sets the comment for a column
+## Dropping columns and constraints
+
+### dropColumn and dropColumns
+
+Drop one or more columns by name.
 
 ```ts
-this.schema.alterTable('users', (table) => {
-  table.string('avatar_url').comment('Only relative names are stored')
-})
+table.dropColumn('legacy_field')
+table.dropColumns('first_name', 'middle_name', 'last_name')
 ```
 
-## collate
-Sets the collation for a column (only works in MySQL).
+### dropPrimary
+
+Drop the primary key constraint. Pass an optional name when the constraint was created with a custom name.
 
 ```ts
-this.schema.alterTable('users', (table) => {
-  table
-    .string('email')
-    .unique()
-    .collate('utf8_unicode_ci')
-})
+table.dropPrimary()
+table.dropPrimary('posts_pk')
+```
+
+### dropUnique
+
+Drop a unique index. Pass the columns and optionally the index name.
+
+```ts
+table.dropUnique(['email'])
+table.dropUnique(['slug', 'tenant_id'], 'posts_slug_tenant_unique')
+```
+
+### dropIndex
+
+Drop an index. Pass the columns and optionally the index name.
+
+```ts
+table.dropIndex(['first_name', 'last_name'])
+table.dropIndex(['first_name', 'last_name'], 'users_full_name_idx')
+```
+
+### dropForeign
+
+Drop a foreign key constraint. Pass the columns and optionally the constraint name.
+
+```ts
+table.dropForeign('user_id')
+table.dropForeign(['tenant_id', 'user_id'], 'posts_tenant_user_fk')
+```
+
+### dropTimestamps
+
+Drop the `created_at` and `updated_at` columns added by `timestamps()`.
+
+```ts
+table.dropTimestamps()
+```
+
+## Table options
+
+### comment
+
+Set a comment on the table.
+
+```ts
+table.comment('Tracks every published article')
+```
+
+### engine
+
+Set the storage engine. MySQL only.
+
+```ts
+table.engine('InnoDB')
+```
+
+### charset
+
+Set the table-level character set. MySQL only.
+
+```ts
+table.charset('utf8mb4')
+```
+
+### collate
+
+Set the table-level collation. MySQL only.
+
+```ts
+table.collate('utf8mb4_unicode_ci')
+```
+
+### inherits
+
+Set a parent table for inheritance. PostgreSQL only.
+
+```ts
+table.inherits('cities')
 ```

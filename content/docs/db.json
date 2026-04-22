@@ -3,43 +3,55 @@
     "permalink": "introduction",
     "title": "Introduction",
     "contentPath": "./guides/introduction.md",
-    "category": "Guides"
+    "category": "Getting started"
   },
   {
     "permalink": "installation",
-    "title": "Installation and Usage",
+    "title": "Installation and usage",
     "contentPath": "./guides/installation.md",
-    "category": "Guides"
+    "category": "Getting started"
   },
   {
-    "permalink": "debugging",
-    "title": "Debugging",
-    "contentPath": "./guides/debugging.md",
-    "category": "Guides"
+    "permalink": "configuration",
+    "title": "Configuration",
+    "contentPath": "./guides/configuration.md",
+    "category": "Getting started"
+  },
+  {
+    "permalink": "commands",
+    "title": "Commands",
+    "contentPath": "./guides/commands.md",
+    "category": "Getting started"
+  },
+  {
+    "permalink": "database-service",
+    "title": "Database service",
+    "contentPath": "./guides/database_service.md",
+    "category": "Database"
   },
   {
     "permalink": "transactions",
     "title": "Transactions",
     "contentPath": "./guides/transactions.md",
-    "category": "Guides"
+    "category": "Database"
   },
   {
     "permalink": "pagination",
     "title": "Pagination",
     "contentPath": "./guides/pagination.md",
-    "category": "Guides"
+    "category": "Database"
   },
   {
-    "permalink": "seeders",
-    "title": "Database seeders",
-    "contentPath": "./guides/seeders.md",
-    "category": "Guides"
+    "permalink": "debugging",
+    "title": "Debugging",
+    "contentPath": "./guides/debugging.md",
+    "category": "Database"
   },
   {
     "permalink": "validation",
     "title": "Validation rules",
     "contentPath": "./guides/validation.md",
-    "category": "Guides"
+    "category": "Database"
   },
   {
     "permalink": "select-query-builder",
@@ -51,6 +63,12 @@
     "permalink": "insert-query-builder",
     "title": "Insert query builder",
     "contentPath": "./query_builders/insert.md",
+    "category": "Query builders"
+  },
+  {
+    "permalink": "update-and-delete-queries",
+    "title": "Update and delete queries",
+    "contentPath": "./query_builders/update_and_delete.md",
     "category": "Query builders"
   },
   {
@@ -78,6 +96,18 @@
     "category": "Migrations"
   },
   {
+    "permalink": "schema-generation",
+    "title": "Schema generation",
+    "contentPath": "./migrations/schema_generation.md",
+    "category": "Migrations"
+  },
+  {
+    "permalink": "schema-dumps",
+    "title": "Schema dumps",
+    "contentPath": "./migrations/schema_dumps.md",
+    "category": "Migrations"
+  },
+  {
     "permalink": "models",
     "title": "Introduction",
     "contentPath": "./models/introduction.md",
@@ -96,27 +126,21 @@
     "category": "Models"
   },
   {
-    "permalink": "model-hooks",
-    "title": "Hooks",
-    "contentPath": "./models/hooks.md",
-    "category": "Models"
-  },
-  {
     "permalink": "model-query-builder",
     "title": "Query builder",
     "contentPath": "./models/query_builder.md",
     "category": "Models"
   },
   {
-    "permalink": "model-naming-strategy",
-    "title": "Naming strategy",
-    "contentPath": "./models/naming_strategy.md",
-    "category": "Models"
-  },
-  {
     "permalink": "model-query-scopes",
     "title": "Query scopes",
     "contentPath": "./models/query_scopes.md",
+    "category": "Models"
+  },
+  {
+    "permalink": "model-hooks",
+    "title": "Hooks",
+    "contentPath": "./models/hooks.md",
     "category": "Models"
   },
   {
@@ -127,14 +151,56 @@
   },
   {
     "permalink": "relationships",
-    "title": "Relationships",
-    "contentPath": "./models/relationships.md",
-    "category": "Models"
+    "title": "Introduction",
+    "contentPath": "./relationships/introduction.md",
+    "category": "Relationships"
+  },
+  {
+    "permalink": "belongs-to",
+    "title": "BelongsTo",
+    "contentPath": "./relationships/belongs_to.md",
+    "category": "Relationships"
+  },
+  {
+    "permalink": "has-many",
+    "title": "HasMany",
+    "contentPath": "./relationships/has_many.md",
+    "category": "Relationships"
+  },
+  {
+    "permalink": "many-to-many",
+    "title": "ManyToMany",
+    "contentPath": "./relationships/many_to_many.md",
+    "category": "Relationships"
+  },
+  {
+    "permalink": "has-one",
+    "title": "HasOne",
+    "contentPath": "./relationships/has_one.md",
+    "category": "Relationships"
+  },
+  {
+    "permalink": "has-many-through",
+    "title": "HasManyThrough",
+    "contentPath": "./relationships/has_many_through.md",
+    "category": "Relationships"
+  },
+  {
+    "permalink": "testing",
+    "title": "Testing utilities",
+    "contentPath": "./testing/introduction.md",
+    "category": "Testing"
   },
   {
     "permalink": "model-factories",
     "title": "Model factories",
-    "contentPath": "./models/model_factories.md",
-    "category": "Models"
+    "contentPath": "./testing/model_factories.md",
+    "category": "Testing"
+  },
+  {
+    "permalink": "seeders",
+    "title": "Database seeders",
+    "contentPath": "./testing/seeders.md",
+    "category": "Testing"
   }
 ]

@@ -1,61 +1,63 @@
+---
+summary: Construct SELECT queries with the database query builder, including filters, joins, aggregates, CTEs, locks, and conditional helpers.
+---
+
 # Select query builder
 
-The select query builder is used to construct **SELECT**, **UPDATE**, and **DELETE** SQL queries. For inserting new rows you must use the [insert query builder](./insert.md) and use [raw query builder](./raw.md) for running raw SQL queries.
+This guide covers the SELECT query builder. You will learn how to:
 
-You can get an instance of the [select query builder](https://github.com/adonisjs/lucid/blob/develop/src/database/query_builder/database.ts) using one of the following methods.
+- Select columns, including aliases, subqueries, and raw fragments
+- Filter rows with the full family of `where` clauses and JSON helpers
+- Join, group, aggregate, and order results
+- Compose set operations and common table expressions
+- Acquire row-level locks inside transactions
+- Execute, inspect, and debug queries
+- Build conditional queries with `if`, `unless`, `match`, and dialect-aware helpers
+
+## Overview
+
+The select query builder is Lucid's fluent interface for building SELECT statements. It returns plain JavaScript objects when executed. For typed model results, use the [model query builder](../models/query_builder.md). For inserts, use the [insert query builder](./insert.md). For updates and deletes, use [update and delete queries](./update_and_delete.md).
+
+Get a builder instance through the `db` service.
 
 ```ts
 import db from '@adonisjs/lucid/services/db'
 
-/**
- * Creates query builder instance
- */
-const query = db.query()
-
-/**
- * Creates query builder instance and also selects
- * the table
- */
-const queryWithTableSelection = db.from('users')
+const query = db.query()              // builder without a table selected
+const usersQuery = db.from('users')   // shortcut: builder with the table selected
 ```
 
-## Methods/properties
-Following is the list of available methods/properties available on the Query builder instance.
+Both forms return the same `DatabaseQueryBuilder` instance. `db.from(table)` is the shortcut you will reach for most often.
+
+## Selecting columns
+
+By default the builder selects every column (`SELECT *`). Call `select` to limit the result to specific columns, or to use aliases, subqueries, and raw expressions.
 
 ### select
-The `select` method allows selecting columns from the database table. You can either pass an array of columns or pass them as multiple arguments.
+
+Pass column names as separate arguments or as an array.
 
 ```ts
+// title: app/services/users_service.ts
 import db from '@adonisjs/lucid/services/db'
 
-db
+const users = await db
   .from('users')
   .select('id', 'username', 'email')
 ```
 
-You can define aliases for the columns using the `as` expression or passing an object of key-value pair.
+Rename columns in the result with the `as` syntax or by passing an object with alias keys.
 
 ```ts
-db
-  .from('users')
-  .select('id', 'email as userEmail')
+db.from('users').select('id', 'email as userEmail')
+
+db.from('users').select({ id: 'id', userEmail: 'email' })
 ```
 
-```ts
-db
-  .from('users')
-  .select({
-    id: 'id',
-
-    // Key is alias name
-    userEmail: 'email'
-  })
-```
-
-Also, you can make use of sub-queries and raw-queries for generating columns at runtime, for example, selecting the last login IP address for a user from the `user_logins` table.
+Pass a subquery as a column to compute a value at query time. The following selects each user's most recent login IP address as a derived column.
 
 ```ts
-db
+const users = await db
   .from('users')
   .select(
     db
@@ -68,155 +70,100 @@ db
   )
 ```
 
-Similar to a sub-query, you can pass an instance of the raw query as well.
+Use `db.raw` for arbitrary SQL fragments as columns.
 
 ```ts
 db
   .from('users')
   .select(
-    db.raw(`
-      (select ip_address from user_logins where users.id = user_logins.user_id limit 1) as last_login_ip
-    `)
+    db.raw(`(select count(*) from posts where posts.user_id = users.id) as posts_count`)
   )
 ```
 
 ### from
-The `from` method is used to define the database table for the query.
+
+Select the table the query operates on.
 
 ```ts
-import db from '@adonisjs/lucid/services/db'
-
 db.from('users')
 ```
 
-The query builder also allows using derived tables by passing a sub-query or a closure (which acts like a sub-query).
+The `from` method also accepts a subquery or callback to query a derived table.
 
 ```ts
-import db from '@adonisjs/lucid/services/db'
-
 db
   .from((subquery) => {
     subquery
       .from('user_exams')
       .sum('marks as total')
       .groupBy('user_id')
-      .as('total_marks')
+      .as('totals')
   })
-  .avg('total_marks.total')
+  .avg('totals.total')
 ```
+
+### as
+
+Set an alias on the query, typically when the query is used as a subquery passed to `select`, `from`, or another query builder method.
+
+```ts
+db
+  .from('users')
+  .select('id', 'username')
+  .as('active_users')
+```
+
+## Where clauses
+
+Where clauses filter the rows returned by the query. Lucid exposes a `where` method that accepts many shapes, plus a family of more specific helpers (`whereLike`, `whereIn`, `whereNull`, `whereExists`, `whereBetween`, `whereRaw`, JSON helpers).
 
 ### where
-The `where` method is used to define the where clause in your SQL queries. The query builder accepts a wide range of arguments types to let you leverage the complete power of SQL.
 
-The following example accepts the column name as the first argument and its value as the second argument.
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-
-db
-  .from('users')
-  .where('username', 'virk')
-```
-
-You can also define SQL operators, as shown below.
+The most flexible filter method. It accepts a column name with an optional operator and a value, an object of equality checks, or a callback that builds a grouped condition.
 
 ```ts
-db
-  .from('users')
-  .where('created_at', '>', '2020-09-09')
+// Equality
+db.from('users').where('email', 'virk@adonisjs.com')
+
+// Operator
+db.from('users').where('age', '>', 18)
+
+// Object form
+db.from('users').where({ status: 'active', role: 'admin' })
+
+// Grouped condition
+db.from('users').where((query) => {
+  query.where('role', 'admin').orWhere('is_owner', true)
+})
 ```
+
+Pass a subquery or raw expression as the value when the comparison cannot be expressed inline.
 
 ```ts
-// title: Using luxon to make the date
-db
-  .from('users')
-  .where('created_at', '>', DateTime.local().toSQLDate())
-```
-
-```ts
-// title: Using like operator
-db
-  .from('posts')
-  .where('title', 'like', '%Adonis 101%')
-```
-
-You can create `where` groups by passing a callback to the `where` method. For example:
-
-```ts
-// title: where groups
-db
-  .from('users')
-  .where((query) => {
-    query
-      .where('username', 'virk')
-      .whereNull('deleted_at')
-  })
-  .orWhere((query) => {
-    query
-      .where('email', 'virk@adonisjs.com')
-      .whereNull('deleted_at')
-  })
-```
-
-Generated SQL
-
-```sql
-SELECT * FROM "users"
-  WHERE (
-    "username" = ? AND "deleted_at" IS NULL
-  )
-  or (
-    "email" = ? AND "deleted_at" IS NULL
-  )
-```
-
-The `where` method value can also be a sub-query.
-
-```ts
-// title: With subqueries
 db
   .from('user_groups')
   .where(
     'user_id',
-    db
-      .from('users')
-      .select('user_id')
-      .where('users.user_id', 1)
+    db.raw(`(select user_id from users where users.user_id = ?)`, [1])
   )
 ```
 
-Similarly, you can also define a raw query.
-
-```ts
-// title: With raw queries
-db
-  .from('user_groups')
-  .where(
-    'user_id',
-    db
-      .raw(`select "user_id" from "users" where "users"."user_id" = ?`, [1])
-      .wrap('(', ')')
-  )
-```
-
-### where method variants
-Following is the list of the `where` method variations and shares the same API.
+The `where` method has variants for combining and inverting clauses:
 
 | Method | Description |
-|--------|-------------|
-| `andWhere` | Alias for the `where` method |
-| `orWhere` | Adds an **or where** clause |
-| `whereNot` | Adds a **where not** clause |
-| `orWhereNot` | Adds an **or where not** clause |
+| --- | --- |
+| `andWhere` | Alias for `where` |
+| `orWhere` | Adds an `OR WHERE` clause |
+| `whereNot` | Adds a `WHERE NOT` clause |
+| `orWhereNot` | Adds an `OR WHERE NOT` clause |
 | `andWhereNot` | Alias for `whereNot` |
 
 ### whereColumn
-The `whereColumn` method allows you to define a column as the value for the where clause. The method is usually helpful with queries and joins. For example:
+
+Compare two columns directly, instead of a column to a value. Useful inside subqueries and joins.
 
 ```ts
-db
-  .from('users')
-  .whereColumn('updated_at', '>', 'created_at')
+db.from('users').whereColumn('updated_at', '>', 'created_at')
 ```
 
 ```ts
@@ -226,905 +173,489 @@ db
     db
       .from('user_logins')
       .select('ip_address')
-      .whereColumn('users.id', 'user_logins.user_id') // 👈
+      .whereColumn('users.id', 'user_logins.user_id')
       .orderBy('id', 'desc')
       .limit(1)
       .as('last_login_ip')
   )
 ```
 
-### whereColumn method variants
-Following is the list of the `whereColumn` method variations and shares the same API.
+`whereColumn` shares the same variant set as `where`: `andWhereColumn`, `orWhereColumn`, `whereNotColumn`, `orWhereNotColumn`, `andWhereNotColumn`.
 
-| Method | Description |
-|--------|-------------|
-| `andWhereColumn` | Alias for the `whereColumn` method |
-| `orWhereColumn` | Adds an **or where** clause |
-| `whereNotColumn` | Adds a **where not** clause |
-| `orWhereNotColumn` | Adds an **or where not** clause |
-| `andWhereNotColumn` | Alias for `whereNotColumn` |
+### whereLike and whereILike
 
-### whereLike
-Adds a where clause with case-sensitive substring comparison on a given column with a given value.
+`whereLike` runs a case-sensitive `LIKE` comparison. `whereILike` runs a case-insensitive comparison and uses the appropriate operator for each dialect (`ILIKE` on PostgreSQL, `LIKE` on SQL Server, `LOWER(...)` on others).
 
 ```ts
-db
-  .from('posts')
-  .whereLike('title', '%Adonis 101%')
-```
-
-### whereILike
-Adds a where clause with case-insensitive substring comparison on a given column with a given value. The method generates a slightly different for each dialect to achieve the case insensitive comparison.
-
-```ts
-db
-  .from('posts')
-  .whereILike('title', '%Adonis 101%')
+db.from('posts').whereLike('title', '%Adonis 101%')
+db.from('posts').whereILike('title', '%adonis 101%')
 ```
 
 ### whereIn
-The `whereIn` method is used to define the **wherein** SQL clause. The method accepts the column name as the first argument and an array of values as the second argument.
+
+Match a column against a list of values.
 
 ```ts
-db
-  .from('users')
-  .whereIn('id', [1, 2, 3])
+db.from('users').whereIn('id', [1, 2, 3])
 ```
 
-The values can also be defined for more than column. For example:
+Pass an array of column names with a list of value tuples to filter on multiple columns at once.
 
 ```ts
 db
   .from('users')
-  .whereIn(['id', 'email'], [
-    [1, 'virk@adonisjs.com']
-  ])
+  .whereIn(['id', 'email'], [[1, 'virk@adonisjs.com']])
 
 // SQL: select * from "users" where ("id", "email") in ((?, ?))
 ```
 
-You can also compute the `whereIn` values using a subquery.
-
-```ts
-// title: With subqueries
-db
-  .from('users')
-  .whereIn(
-    'id',
-    db
-      .from('user_logins')
-      .select('user_id')
-      .where('created_at', '<', '2020-09-09')
-  )
-```
-
-For multiple columns
-
-```ts
-db
-  .from('users')
-  .whereIn(
-    ['id', 'email'],
-    db
-      .from('accounts')
-      .select('user_id', 'email')
-  )
-```
-
-The `whereIn` method also accepts a callback as the 2nd argument. The callback receives an instance of the subquery that you can use to compute values as runtime.
+Compute the values from a subquery for "this row's id is in the result of another query" patterns.
 
 ```ts
 db
   .from('users')
   .whereIn(
     'id',
-    (query) => query.from('user_logins').select('user_id')
+    db.from('user_logins').select('user_id').where('logged_in_at', '>', '2026-01-01')
   )
 ```
 
-### whereIn method variants
-Following is the list of the `whereIn` method variations and shares the same API.
+Variants: `andWhereIn`, `orWhereIn`, `whereNotIn`, `orWhereNotIn`, `andWhereNotIn`.
 
-| Method | Description |
-|--------|-------------|
-| `andWhereIn` | Alias for the `whereIn` method |
-| `orWhereIn` | Adds an **or where in** clause |
-| `whereNotIn` | Adds a **where not in** clause |
-| `orWhereNotIn` | Adds an **or where not in** clause |
-| `andWhereNotIn` | Alias for `whereNotIn` |
+### whereNull and whereNotNull
 
-### whereNull
-The `whereNull` method adds a where null clause to the query.
+Filter rows where a column is (or is not) `NULL`.
 
 ```ts
-db
-  .from('users')
-  .whereNull('deleted_at')
+db.from('users').whereNull('deleted_at')
+db.from('users').whereNotNull('email_verified_at')
 ```
 
-### whereNull method variants
-Following is the list of the `whereNull` method variations and shares the same API.
+Variants: `andWhereNull`, `orWhereNull`, `andWhereNotNull`, `orWhereNotNull`.
 
-| Method | Description |
-|--------|-------------|
-| `andWhereNull` | Alias for the `whereNull` method |
-| `orWhereNull` | Adds an **or where null** clause |
-| `whereNotNull` | Adds a **where not null** clause |
-| `orWhereNotNull` | Adds an **or where not null** clause |
-| `andWhereNotNull` | Alias for `whereNotNull` |
+### whereBetween and whereNotBetween
+
+Filter rows where a column's value falls (or does not fall) within an inclusive range.
+
+```ts
+db.from('orders').whereBetween('total', [100, 500])
+db.from('orders').whereNotBetween('created_at', ['2026-01-01', '2026-02-01'])
+```
+
+Variants: `andWhereBetween`, `orWhereBetween`, `andWhereNotBetween`, `orWhereNotBetween`.
 
 ### whereExists
-The `whereExists` method allows adding where constraints by checking for the existence of results on a subquery. For example: Select all users who have at least logged in once.
+
+Filter rows where a subquery returns at least one row. Use this for "rows that have a related record" patterns.
 
 ```ts
 db
   .from('users')
   .whereExists((query) => {
     query
-      .from('user_logins')
-      .whereColumn('users.id', 'user_logins.user_id')
-      .limit(1)
+      .from('orders')
+      .whereColumn('orders.user_id', 'users.id')
+      .where('orders.status', 'paid')
   })
 ```
 
-You can also pass in a sub-query or a raw query as the first argument.
+Variants: `andWhereExists`, `orWhereExists`, `whereNotExists`, `orWhereNotExists`, `andWhereNotExists`.
+
+### wrapExisting
+
+Wrap every where clause added so far into its own group, so subsequent where clauses combine with the wrapped group rather than its individual conditions. Useful when you have built a base query and want to apply additional conditions that should not mix into the existing logic.
 
 ```ts
-db
-  .from('users')
-  .whereExists(
-    db
-      .from('user_logins')
-      .whereColumn('users.id', 'user_logins.user_id')
-      .limit(1)
-  )
+const baseQuery = db
+  .from('posts')
+  .where('status', 'published')
+  .orWhere('status', 'scheduled')
+
+baseQuery
+  .wrapExisting()
+  .where('author_id', currentUser.id)
+
+// SQL: select * from "posts" where ("status" = ? or "status" = ?) and "author_id" = ?
 ```
 
-```ts
-db
-  .from('users')
-  .whereExists(
-    db.raw(
-      'select * from user_logins where users.id = user_logins.user_id'
-    )
-  )
-```
-
-### whereExists method variants
-
-Following is the list of the `whereExists` method variations and shares the same API.
-
-| Method | Description |
-|--------|-------------|
-| `andWhereExists` |  Alias for the `whereExists` method | 
-| `orWhereExists` |  Adds an **or where exists** clause | 
-| `whereNotExists` |  Adds a **where not exists** clause | 
-| `orWhereNotExists` |  Adds an **or where not exists** clause | 
-| `andWhereNotExists` |  Alias for the `whereNotExists` method | 
-
-### whereBetween
-The `whereBetween` method adds the **where between** clause. It accepts the column name as the first argument and an array of values as the second argument.
-
-```ts
-db
-  .from('users')
-  .whereBetween('age', [18, 60])
-```
-
-
-You can also use subqueries to derive the values from a different database table.
-
-```ts
-// title: With sub queries
-db
-  .from('users')
-  .whereBetween('age', [
-    db.from('participation_rules').select('min_age'),
-    db.from('participation_rules').select('max_age'),
-  ])
-```
-
-You can also make use of raw queries for deriving values from another database table.
-
-```ts
-// title: With raw queries
-db
-  .from('users')
-  .whereBetween('age', [
-    db.raw('(select min_age from participation_rules)'),
-    db.raw('(select max_age from participation_rules)'),
-  ])
-```
-
-### whereBetween method variants
-Following is the list of the `whereBetween` method variations and shares the same API.
-
-| Method | Description |
-|--------|-------------|
-| `andWhereBetween` | Alias for the `whereBetween` method |
-| `orWhereBetween` | Adds an **or where between** clause |
-| `whereNotBetween` | Adds a **where not between** clause |
-| `orWhereNotBetween` | Adds an **or where not between** clause |
-| `andWhereNotBetween` | Alias for the `whereNotBetween` method |
+Without `wrapExisting`, the new `where('author_id', ...)` would `AND` against only the most recent `orWhere`, producing a different result.
 
 ### whereRaw
-You can use the `whereRaw` method to express conditions not covered by the existing query builder methods. Always make sure to use bind parameters to define query values.
 
-
-:::caption{for="error"}
-**Encoding values within the query**
-:::
+Embed a raw SQL fragment inside the where clause. Always pass user input as bindings, never by interpolating into the SQL string.
 
 ```ts
 db
   .from('users')
-  .whereRaw(`username = ${username}`)
+  .whereRaw('LOWER(email) = ?', [request.input('email').toLowerCase()])
 ```
 
-:::caption{for="success"}
-**Using bind params**
-:::
+Variants: `andWhereRaw`, `orWhereRaw`, `whereNotRaw`, `orWhereNotRaw`, `andWhereNotRaw`.
+
+### whereJsonPath
+
+Filter rows by comparing a value at a JSON path inside a JSON column. The third argument is an operator and the fourth is the comparison value; pass three arguments to default the operator to `=`.
 
 ```ts
 db
   .from('users')
-  .whereRaw('username = ?', [username])
-```
+  .whereJsonPath('preferences', '$.theme', 'dark')
 
-You can also define the column names dynamically using `??`.
-
-```ts
 db
-  .from('users')
-  .whereRaw('?? = ?', ['users.username', username])
+  .from('orders')
+  .whereJsonPath('payload', '$.totals.grand', '>', 1000)
 ```
 
-### whereRaw method variants
-Following is the list of the `whereRaw` method variations and shares the same API.
-
-| Method | Description |
-|--------|-------------|
-| `andWhereRaw` | Alias for the `whereRaw` method |
-| `orWhereRaw` | Adds an **or where raw** clause |
+Variants: `andWhereJsonPath`, `orWhereJsonPath`.
 
 ### whereJson
-Add a where clause with an object to match the value of a JSON column inside the database.
+
+Filter rows where a JSON column matches a value structurally. Pass an object that the column must equal.
 
 ```ts
 db
   .from('users')
-  .whereJson('address', { city: 'XYZ', pincode: '110001' })
+  .whereJson('address', { city: 'Bangalore', pincode: '560001' })
 ```
 
-The column value can also be computed using a sub-query.
-
-```ts
-db
-  .from('users')
-  .whereJson(
-    'address',
-    db
-      .select('address')
-      .from('user_address')
-      .where('address.user_id', 1)
-  )
-```
-
-### whereJson method variants
-Following is the list of the `whereJson` method variations and shares the same API.
-
-| Method | Description |
-|--------|-------------|
-| `orWhereJson` | Add a **or where** clause matching the value of a JSON column |
-| `andWhereJson` | Alias for `whereJson` |
-| `whereNotJson` | Add a **where not** clause against a JSON column |
-| `orWhereNotJson` | Add a **or where not** clause against a JSON column |
-| `andWhereNotJson` | Alias for `whereNotJson` |
+Variants: `andWhereJson`, `orWhereJson`, `whereNotJson`, `orWhereNotJson`, `andWhereNotJson`.
 
 ### whereJsonSuperset
-Add a clause where the value of the JSON column is the superset of the defined object. In the following example, the user address is stored as JSON and we find by the user by their pincode.
+
+Filter rows where a JSON column contains all the keys and values of the given object. The column may have additional fields not in the test object.
 
 ```ts
 db
   .from('users')
-  .whereJsonSuperset('address', { pincode: '110001' })
+  .whereJsonSuperset('preferences', { theme: 'dark' })
 ```
 
-### whereJsonSuperset method variants
-Following is the list of the `whereJsonSuperset` method variations and shares the same API.
-
-| Method | Description |
-|--------|-------------|
-| `orWhereJsonSuperset` | Add a **or where** clause matching the value of a JSON column |
-| `andWhereJsonSuperset` | Alias for `whereJsonSuperset` |
-| `whereNotJsonSuperset` | Add a **where not** clause against a JSON column |
-| `orWhereNotJsonSuperset` | Add a **or where not** clause against a JSON column |
-| `andWhereNotJsonSuperset` | Alias for `whereNotJsonSuperset` |
+Variants: `andWhereJsonSuperset`, `orWhereJsonSuperset`, `whereNotJsonSuperset`, `orWhereNotJsonSuperset`, `andWhereNotJsonSuperset`.
 
 ### whereJsonSubset
-Add a clause where the value of the JSON column is the subset of the defined object. In the following example, the user address is stored as JSON and we find by the user by their pincode or the city name.
+
+Filter rows where a JSON column is fully contained within the given object. The column's keys must be a subset of the test object.
 
 ```ts
 db
   .from('users')
-  .whereJsonSubset('address', { pincode: '110001', city: 'XYZ' })
+  .whereJsonSubset('flags', { premium: true, beta: true, internal: false })
 ```
 
-### whereJsonSubset method variants
-Following is the list of the `whereJsonSubset` method variations and shares the same API.
+Variants: `andWhereJsonSubset`, `orWhereJsonSubset`, `whereNotJsonSubset`, `orWhereNotJsonSubset`, `andWhereNotJsonSubset`.
 
-| Method | Description |
-|--------|-------------|
-| `orWhereJsonSubset` | Add a **or where** clause matching the value of a JSON column |
-| `andWhereJsonSubset` | Alias for `whereJsonSubset` |
-| `whereNotJsonSubset` | Add a **where not** clause against a JSON column |
-| `orWhereNotJsonSubset` | Add a **or where not** clause against a JSON column |
-| `andWhereNotJsonSubset` | Alias for `whereNotJsonSubset` |
+JSON helpers are supported on PostgreSQL and MySQL. On SQLite the comparison falls back to a textual `JSON_EXTRACT`-style emulation that works for simple cases but should not be relied on for complex JSON queries.
+
+## Joining tables
+
+Joins combine rows from multiple tables. The query builder exposes the standard SQL join types, plus a raw escape hatch.
 
 ### join
-The `join` method allows specifying SQL joins between two tables. For example: Select the `ip_address` and the `country` columns by joining the `user_logins` table.
+
+The `join` method adds an `INNER JOIN` by default. Pass the joined table name, then either a column-to-column comparison or a callback for multi-condition joins.
 
 ```ts
+// Simple ON clause
 db
-  .from('users')
-  .join('user_logins', 'users.id', '=', 'user_logins.user_id')
-  .select('users.*')
-  .select('user_logins.ip_address')
-  .select('user_logins.country')
-```
+  .from('posts')
+  .join('users', 'posts.user_id', 'users.id')
 
-You can pass a callback as the 2nd argument to define more join constraints.
-
-```ts
+// With explicit operator
 db
-  .from('users')
-  // highlight-start
-  .join('user_logins', (query) => {
-    query
-      .on('users.id', '=', 'user_logins.user_id')
-      .andOnVal('user_logins.created_at', '>', '2020-10-09')
+  .from('posts')
+  .join('users', 'posts.user_id', '=', 'users.id')
+
+// Callback form for compound conditions
+db
+  .from('posts')
+  .join('users', (clause) => {
+    clause
+      .on('posts.user_id', 'users.id')
+      .andOn('users.is_active', '=', db.raw('?', [true]))
   })
-  // highlight-end
-  .select('users.*')
-  .select('user_logins.ip_address')
-  .select('user_logins.country')
 ```
 
-To group join constraints, you can pass a callback to the `on` method.
+Variant methods produce the other join types:
 
-```ts
-db
-  .from('users')
-  .join('user_logins', (query) => {
-    query
-      // highlight-start
-      .on((subquery) => {
-        subquery
-          .on('users.id', '=', 'user_logins.user_id')
-          .andOnVal('user_logins.created_at', '>', '2020-10-09')
-      })
-      .orOn((subquery) => {
-        subquery
-          .on('users.id', '=', 'user_logins.account_id')
-          .andOnVal('user_logins.created_at', '>', '2020-10-09')
-      })
-      // highlight-end
-  })
-  .select('users.*')
-  .select('user_logins.ip_address')
-  .select('user_logins.country')
-```
-
-Output SQL
-
-```sql
-SELECT
-  "users".*,
-  "user_logins"."ip_address",
-  "user_logins"."country"
-FROM "users"
-  INNER JOIN "user_logins" ON (
-    "users"."id" = "user_logins"."user_id" AND "user_logins"."created_at" > ?
-  )
-  or (
-    "users"."id" = "user_logins"."account_id" AND "user_logins"."created_at" > ?
-  )
-```
-
-The `join` method uses the **inner join** by default, and you can use a different join using one of the following available methods.
-
-- `leftJoin`
-- `leftOuterJoin`
-- `rightJoin`
-- `rightOuterJoin`
-- `fullOuterJoin`
-- `crossJoin`
+| Method | Description |
+| --- | --- |
+| `innerJoin` | Same as `join`, but explicit |
+| `leftJoin` / `leftOuterJoin` | `LEFT JOIN` / `LEFT OUTER JOIN` |
+| `rightJoin` / `rightOuterJoin` | `RIGHT JOIN` / `RIGHT OUTER JOIN` |
+| `fullOuterJoin` | `FULL OUTER JOIN` |
+| `crossJoin` | `CROSS JOIN` |
 
 ### joinRaw
-You can use the `joinRaw` method to express conditions not covered by the query builder standard API.
+
+Use a raw SQL fragment as the entire join clause when the standard helpers cannot express what you need.
 
 ```ts
 db
-  .from('users')
-  .joinRaw('natural full join user_logins')
+  .from('posts')
+  .joinRaw('NATURAL FULL JOIN posts_meta')
 ```
 
-### onIn
+### Join conditions with on*
+
+Inside a join callback, the `on` clause supports a family of helpers for non-equality conditions. The methods mirror the where clause family but are called on the join clause object.
 
 ```ts
 db
-  .from('users')
-  .join('user_logins', (query) => {
-    query.onIn('user_logins.country', ['India', 'US', 'UK'])
+  .from('posts')
+  .leftJoin('reactions', (clause) => {
+    clause
+      .on('reactions.post_id', 'posts.id')
+      .onIn('reactions.kind', ['like', 'love', 'wow'])
+      .onNotNull('reactions.deleted_at')
   })
 ```
 
-### onNotIn
-
 ```ts
 db
   .from('users')
-  .join('user_logins', (query) => {
-    query.onNotIn('user_logins.country', ['India', 'US', 'UK'])
+  .innerJoin('subscriptions', (clause) => {
+    clause
+      .on('subscriptions.user_id', 'users.id')
+      .onBetween('subscriptions.created_at', ['2026-01-01', '2026-12-31'])
   })
 ```
 
-### onNull
+The full set:
+
+| Method | Description |
+| --- | --- |
+| `onIn(column, values)` | `column IN (...)` |
+| `onNotIn(column, values)` | `column NOT IN (...)` |
+| `onNull(column)` | `column IS NULL` |
+| `onNotNull(column)` | `column IS NOT NULL` |
+| `onExists(callback)` | `EXISTS (...)` |
+| `onNotExists(callback)` | `NOT EXISTS (...)` |
+| `onBetween(column, [min, max])` | `column BETWEEN min AND max` |
+| `onNotBetween(column, [min, max])` | `column NOT BETWEEN min AND max` |
+
+## Grouping and aggregating
+
+### groupBy
+
+Group rows by one or more columns. Aggregate functions like `count`, `sum`, and `avg` apply per group.
 
 ```ts
 db
-  .from('users')
-  .join('user_logins', (query) => {
-    query.onNull('user_logins.ip_address')
-  })
+  .from('orders')
+  .select('user_id')
+  .count('* as order_count')
+  .groupBy('user_id')
 ```
 
-### onNotNull
+### groupByRaw
+
+Group by a raw SQL expression.
 
 ```ts
 db
-  .from('users')
-  .join('user_logins', (query) => {
-    query.onNotNull('user_logins.ip_address')
-  })
-```
-
-### onExists
-
-```ts
-db
-  .from('users')
-  .join('user_logins', (query) => {
-    query.onExists((subquery) => {
-      subquery
-        .select('*')
-        .from('accounts')
-        .whereRaw('users.account_id = accounts.id')
-    })
-  })
-```
-
-### onNotExists
-
-```ts
-db
-  .from('users')
-  .join('user_logins', (query) => {
-    query.onNotExists((subquery) => {
-      subquery
-        .select('*')
-        .from('accounts')
-        .whereRaw('users.account_id = accounts.id')
-    })
-  })
-```
-
-### onBetween
-
-```ts
-db
-  .from('users')
-  .join('user_logins', (query) => {
-    query.onBetween('user_logins.login_date', ['2020-10-01', '2020-12-31'])
-  })
-```
-
-### onNotBetween
-
-```ts
-db
-  .from('users')
-  .join('user_logins', (query) => {
-    query.onNotBetween('user_logins.login_date', ['2020-10-01', '2020-12-31'])
-  })
+  .from('orders')
+  .groupByRaw('DATE_TRUNC(\'month\', created_at)')
 ```
 
 ### having
 
-The `having` method adds the **having** clause. It accepts the column name as the first argument, followed by the optional operator and the value.
+Filter the grouped result. Use `having` instead of `where` when the filter applies to an aggregate.
 
 ```ts
 db
-  .from('exams')
+  .from('orders')
   .select('user_id')
+  .count('* as order_count')
   .groupBy('user_id')
-  .having('score', '>', 80)
+  .having('order_count', '>', 5)
 ```
+
+Variants: `andHaving`, `orHaving`, `havingIn`, `havingNotIn`, `havingNull`, `havingNotNull`, `havingBetween`, `havingNotBetween`, `havingExists`, `havingNotExists`.
 
 ### havingRaw
-Most of the time, you will find yourself using the `havingRaw` method, as you can define the aggregates for the having clause.
+
+Use a raw SQL fragment as the having clause.
 
 ```ts
 db
-  .from('exams')
+  .from('orders')
   .select('user_id')
+  .sum('total as total_spend')
   .groupBy('user_id')
-  .havingRaw('SUM(score) > ?', [200])
+  .havingRaw('SUM(total) > ?', [10000])
 ```
 
-### having method variants 
+### Aggregate methods
 
-Following is the list of all the available **having methods**.
+Aggregate methods reduce the result to a single row per group, or a single row total when no `groupBy` is set. Pass an alias as part of the column string to control the output key.
+
+```ts
+const result = await db.from('orders').count('* as total')
+console.log(result[0].total)
+```
+
+The full set of aggregates:
 
 | Method | Description |
-|--------|-------------|
-| `havingIn` | Adds a having in clause to the query. It accepts an array of values. |
-| `havingNotIn` | Adds a having not in clause to the query. It accepts an array of values. |
-| `havingNull` |  Adds a having null clause to the query. |
-| `havingNotNull` | Adds a having not null clause to the query. |
-| `havingExists` | Adds a having exists clause to the query. |
-| `havingNotExists` | Adds a having not exists clause to the query. |
-| `havingBetween` | Adds a having between clause to the query. It accepts an array of values. |
-| `havingNotBetween` | Adds a having not between clause to the query. It accepts an array of values |
+| --- | --- |
+| `count(column)` | Number of non-null rows |
+| `countDistinct(column)` | Number of distinct non-null values |
+| `min(column)` | Minimum value |
+| `max(column)` | Maximum value |
+| `sum(column)` | Sum of values |
+| `sumDistinct(column)` | Sum of distinct values |
+| `avg(column)` | Average of values |
+| `avgDistinct(column)` | Average of distinct values |
 
 ### distinct
-The `distinct` method applies the **distinct** clause to the select statement. You can define one or more column names as multiple arguments.
+
+Apply the `DISTINCT` modifier to the SELECT.
+
+```ts
+db.from('users').distinct('email')
+```
+
+Pass no arguments to apply `DISTINCT` to all selected columns.
+
+### distinctOn
+
+Apply the PostgreSQL-specific `DISTINCT ON` modifier, which keeps the first row for each distinct value of the listed columns according to the query's `ORDER BY`. Available only on PostgreSQL.
 
 ```ts
 db
-  .from('users')
-  .distinct('country')
-
-db
-  .from('users')
-  .distinct('country', 'locale')
+  .from('events')
+  .distinctOn('user_id')
+  .orderBy('user_id')
+  .orderBy('occurred_at', 'desc')
 ```
 
-You can call the `distinct` method without any parameters to eliminate duplicate rows.
-
-```ts
-db.from('users').distinct()
-```
-
-There is another PostgreSQL-only method, `distinctOn`. Here's an article explaining [SELECT DISTINCT ON](https://www.geekytidbits.com/postgres-distinct-on/).
-
-```ts
-db
-  .from('logs')
-  .distinctOn('url')
-  .orderBy('created_at', 'DESC')
-```
-
-### groupBy
-The `groupBy` method applies the **group by** clause to the query.
-
-```ts
-db
-  .from('logs')
-  .select('url')
-  .groupBy('url')
-```
-
-### groupByRaw
-The `groupByRaw` method allows writing a SQL query to define the group by statement.
-
-```ts
-db
-  .from('sales')
-  .select('year')
-  .groupByRaw('year WITH ROLLUP')
-```
+## Ordering and limiting
 
 ### orderBy
-The `orderBy` method applies the **order by** clause to the query.
+
+Order results by a column. Pass `'asc'` or `'desc'` (defaults to `'asc'`).
 
 ```ts
-db
-  .from('users')
-  .orderBy('created_at', 'desc')
+db.from('posts').orderBy('created_at', 'desc')
 ```
 
-You can sort by multiple columns by calling the `orderBy` method multiple times.
+Pass an array of objects to order by multiple columns.
 
 ```ts
 db
-  .from('users')
-  .orderBy('username', 'asc')
-  .orderBy('created_at', 'desc')
-```
-
-Or pass an array of objects.
-
-```ts
-db
-  .from('users')
+  .from('posts')
   .orderBy([
-    {
-      column: 'username',
-      order: 'asc',
-    },
-    {
-      column: 'created_at',
-      order: 'desc',
-    }
+    { column: 'is_pinned', order: 'desc' },
+    { column: 'created_at', order: 'desc' },
   ])
 ```
 
-You can also pass a sub-query instance to the `orderBy` method — for example, Order posts by the number of comments they have received.
-
-```ts
-const commentsCountQuery = db
-  .from('comments')
-  .count('*')
-  .whereColumn('posts.id', '=', 'comments.post_id')
-
-db
-  .from('posts')
-  .orderBy(commentsCountQuery, 'desc')
-```
-
 ### orderByRaw
-Use the `orderByRaw` method to define the sort order from a SQL string.
+
+Order by a raw SQL expression.
 
 ```ts
-const commentsCountQuery = db
-  .raw(
-    'select count(*) from comments where posts.id = comments.post_id'
-  )
-  .wrap('(', ')')
-
 db
   .from('posts')
-  .orderBy(commentsCountQuery, 'desc')
+  .orderByRaw('LENGTH(title) DESC')
 ```
 
-### offset
-Apply offset to the SQL query
+### offset and limit
+
+Skip and limit rows.
 
 ```ts
-db.from('posts').offset(11)
-```
-
-### limit
-Apply a limit to the SQL query
-
-```ts
-db.from('posts').limit(20)
+db.from('posts').offset(40).limit(20)
 ```
 
 ### forPage
-The `forPage` is a convenient method to apply `offset` and `limit` using the page number. It accepts a total of two arguments.
 
-- The first argument is the page number **(not the offset)**.
-- The second argument is the number of rows to fetch. Defaults to 20
+Convenience method that combines `offset` and `limit` for offset-based pagination. `forPage(page, perPage)` is equivalent to `.offset((page - 1) * perPage).limit(perPage)`.
 
 ```ts
-db
-  .from('posts')
-  .forPage(request.input('page', 1), 20)
+db.from('posts').forPage(3, 20)
 ```
 
-### count
-The `count` method allows you to use the **count aggregate** in your SQL queries.
+For the full pagination workflow including the `paginate` method and `SimplePaginator` reference, see the [pagination guide](../guides/pagination.md).
 
-:::note
-The keys for the aggregate values are dialect-specific, and hence we recommend you always define aliases for predictable output.
-:::
-
-:::note
-In PostgreSQL, the count method returns a string representation of a bigint data type.
-:::
-
-```ts
-const users = await db
-  .from('users')
-  .count('* as total')
-
-console.log(users[0].total)
-```
-
-You can also define the aggregate as follows:
-
-```ts
-const users = await db
-  .from('users')
-  .count('*', 'total')
-
-console.log(users[0].total)
-```
-
-You can count multiple columns as follows:
-
-```ts
-const users = await db
-  .from('users')
-  .count({
-    'active': 'is_active',
-    'total': '*',
-  })
-
-console.log(users[0].total)
-console.log(users[0].active)
-```
-
-### Other aggregate methods
-The API for all the following aggregate methods is identical to the `count` method.
-
-| Method | Description |
-|--------|-------------|
-| `countDistinct` | Count only the distinct rows |
-| `min` | Aggregate values using the **min function** |
-| `max` | Aggregate values using the **max function** |
-| `sum` | Aggregate values using the **sum function** |
-| `sumDistinct` | Aggregate values for only distinct rows using the **sum function** |
-| `avg` | Aggregate values using the **avg function** |
-| `avgDistinct` | Aggregate values for only distinct rows using the **avg function** |
+## Set operations
 
 ### union
-The `union` method allows to you build up a union query by using multiple instances of the query builder. For example:
+
+Combine the results of two or more queries that return the same columns.
 
 ```ts
 db
   .from('users')
-  .whereNull('last_name')
+  .select('email')
+  .where('subscribed_to_newsletter', true)
   .union((query) => {
-    query.from('users').whereNull('first_name')
+    query.from('contacts').select('email').where('opted_in', true)
   })
-
-/**
-SELECT * FROM "users" WHERE "last_name" IS NULL
-UNION
-SELECT * FROM "users" WHERE "first_name" IS NULL
-*/
 ```
 
-You can also wrap your union queries by passing a boolean flag as the 2nd argument.
+By default `union` removes duplicate rows. Pass `true` as the second argument or use `unionAll` to keep duplicates.
 
 ```ts
 db
   .from('users')
-  .whereNull('last_name')
-  .union((query) => {
-    query.from('users').whereNull('first_name')
-  }, true) // 👈
-
-/**
-SELECT * FROM "users" WHERE "last_name" IS NULL
-UNION
-(SELECT * FROM "users" WHERE "first_name" IS NULL)
-*/
+  .select('email')
+  .unionAll((query) => {
+    query.from('contacts').select('email')
+  })
 ```
 
-You can pass an array of callbacks to define multiple union queries.
+### intersect and except
+
+Return only rows that appear in both queries (`intersect`) or rows that appear in the first but not the second (`except`). Supported on PostgreSQL, MSSQL, and SQLite.
 
 ```ts
 db
-  .from('users')
-  .whereNull('last_name')
-  // highlight-start
-  .union([
-    (query) => {
-      query.from('users').whereNull('first_name')
-    },
-    (query) => {
-      query.from('users').whereNull('email')
-    },
-  ], true)
-  // highlight-end
-
-// highlight-start
-/**
-SELECT * FROM "users" WHERE "last_name" IS NULL
-UNION
-(SELECT * FROM "users" WHERE "first_name" IS NULL)
-UNION
-(SELECT * FROM "users" WHERE "email" IS NULL)
-*/
-// highlight-end
+  .from('active_users')
+  .select('id')
+  .intersect((query) => {
+    query.from('paying_users').select('id')
+  })
 ```
 
-You can also define union queries by passing an instance of a query builder.
+## Common table expressions
 
-```ts
-db
-  .from('users')
-  .whereNull('last_name')
-  // highlight-start
-  .union([
-    db.from('users').whereNull('first_name'),
-    db.from('users').whereNull('email')
-  ], true)
-  // highlight-end
-```
-
-The following methods have the same API as the `union` method.
-
-- `unionAll`
-- `intersect`
+CTEs let you give a subquery a name and reference it in the main query. Useful for readability and recursive queries.
 
 ### with
-The `with` method allows you to use CTE (Common table expression) in **PostgreSQL**, **Oracle**, **SQLite3** and the **MSSQL** databases.
+
+Define a CTE alias and use it as a regular table.
 
 ```ts
 db
-  .query()
-  .with('aliased_table', (query) => {
-    query.from('users').select('*')
+  .with('active_users', (query) => {
+    query
+      .from('users')
+      .select('*')
+      .where('is_active', true)
   })
-  .select('*')
-  .from('aliased_table')
-
-/**
-WITH "aliased_table" AS (
-  SELECT * FROM "users"
-)
-SELECT * FROM "aliased_table"
-*/
+  .from('active_users')
+  .where('role', 'admin')
 ```
 
-The method also accepts an optional third parameter which is an array of column names. The number of column names specified must match the number of columns in the result set of the CTE query.
+### withMaterialized and withNotMaterialized
+
+PostgreSQL-specific hints that force the planner to materialize (or refuse to materialize) the CTE result.
 
 ```ts
 db
-  .query()
-  .with('aliased_table', (query) => {
-    query.from('users').select('id', 'email')
-  }, ['id', 'email'])
-  .select('*')
-  .from('aliased_table')
-
-/**
-WITH "aliased_table" (id, email) AS (
-  SELECT * FROM "users"
-)
-SELECT * FROM "aliased_table"
-*/
-```
-
-### withMaterialized/withNotMaterialized
-The `withMaterialized` and the `withNotMaterialized` methods allows you to use CTE (Common table expression) as materialized views in **PostgreSQL** and **SQLite3** database.
-
-```ts
-db
-  .query()
   .withMaterialized('aliased_table', (query) => {
     query.from('users').select('*')
   })
   .select('*')
   .from('aliased_table')
-
-/**
-WITH "aliased_table" AS MATERIALIZED (
-  SELECT * FROM "users"
-)
-SELECT * FROM "aliased_table"
-*/
 ```
 
 ### withRecursive
-The `withRecursive` method creates a recursive CTE (Common table expression) in **PostgreSQL**, **Oracle**, **SQLite3** and the **MSSQL** databases.
 
-In the following example, we calculate the sum of all children accounts of a parent account. Also, we assume the following table structure.
+Build a recursive CTE for tree and graph traversal. Supported on PostgreSQL, MySQL 8+, SQLite 3.8+, MSSQL, and Oracle.
 
-| id | name              | parent_id | amount |
-|----|-------------------|-----------|--------|
-|  1 | Expenses          |      NULL |   NULL |
-|  2 | Car Expenses      |         1 |    100 |
-|  3 | Food Expenses     |         1 |     40 |
-|  4 | Earnings          |      NULL |   NULL |
-|  5 | Freelance work    |         4 |    100 |
-|  6 | Blog post payment |         4 |     78 |
-|  7 | Car service       |         2 |     60 |
+The example below sums the amounts of every account that descends from a given root, walking down the parent/child hierarchy.
 
 ```ts
 db
@@ -1138,758 +669,286 @@ db
         subquery
           .from('accounts as a')
           .select('a.amount', 'a.id')
-          .innerJoin('tree', 'tree.id', '=', 'a.parent_id')
+          .innerJoin('tree', 'tree.id', 'a.parent_id')
       })
   })
   .sum('amount as total')
   .from('tree')
 ```
 
-The above example is not meant to simplify the complexity of SQL. Instead, it demonstrates the power of the query builder to construct such SQL queries without writing them as a SQL string.
-
-The method also accepts an optional third parameter which is an array of column names. The number of column names specified must match the number of columns in the result set of the CTE query.
+A third argument restricts the column list of the CTE.
 
 ```ts
 db
   .query()
   .withRecursive('tree', (query) => {
-    query
-      .from('accounts')
-      .select('amount', 'id')
-      .where('id', 1)
-      .union((subquery) => {
-        subquery
-          .from('accounts as a')
-          .select('a.amount', 'a.id')
-          .innerJoin('tree', 'tree.id', '=', 'a.parent_id')
-      })
+    // ...
   }, ['amount', 'id'])
   .sum('amount as total')
   .from('tree')
 ```
 
-Here's a great article explaining the [PostgreSQL Recursive Query](https://www.postgresqltutorial.com/postgresql-recursive-query/)
+## Locks
 
-### update
-The `update` method allows updating one or more database rows. You can make use of the query builder to add additional constraints when performing the update.
+Locks serialize concurrent access to selected rows at the database level. They must be used inside a transaction; without one, the lock is acquired and immediately released.
 
-```ts
-const affectedRows = db
-  .from('users')
-  .where('id', 1)
-  .update({ email: 'virk@adonisjs.com' })
-```
-
-The return value is the number of affected rows. However, when using `PostgreSQL`, `Oracle`, or `MSSQL`, you can specify the return columns as well.
-
-```ts
-const rows = db
-  .from('users')
-  .where('id', 1)
-  .update(
-    { email: 'virk@adonisjs.com' },
-    ['id', 'email'] // columns to return
-  )
-
-console.log(rows[0].id)
-console.log(rows[0].email)
-```
-
-### increment
-The `increment` method allows incrementing the value for one or more columns.
-
-```ts
-db
-  .from('accounts')
-  .where('id', 1)
-  .increment('balance', 10)
-
-/**
-UPDATE "accounts"
-SET
-  "balance" = "balance" + 10
-WHERE
-  "id" = 1
-*/
-```
-
-You can also increment multiple columns by passing an object.
-
-```ts
-db
-  .from('accounts')
-  .where('id', 1)
-  .increment({
-    balance: 10,
-    credit_limit: 5
-  })
-
-/**
-UPDATE "accounts"
-SET
-  "balance" = "balance" + 10,
-  "credit_limit" = "credit_limit" + 5
-WHERE
-  "id" = 1
-*/
-```
-
-### decrement
-The `decrement` method is the opposite of the `increment` method. However, the API is the same.
-
-```ts
-db
-  .from('accounts')
-  .where('id', 1)
-  .decrement('balance', 10)
-```
-
-### delete
-The `delete` method issues a **delete** SQL query. You can make use of the query builder to add additional constraints when performing the delete.
-
-```ts
-db
-  .from('users')
-  .where('id', 1)
-  .delete()
-```
-
-The `delete` method also has an alias called `del`.
-
-### useTransaction
-The `useTransaction` method instructs the query builder to wrap the query inside a transaction. The guide on [database transactions](../guides/transactions.md) covers different ways to create and use transactions in your application.
-
-```ts
-const trx = await db.transaction()
-
-db
-  .from('users')
-  .useTransaction(trx) // 👈
-  .where('id', 1)
-  .update({ email: 'virk@adonisjs.com' })
-
-await trx.commit()
-```
+Locks must be issued through the transaction client itself (`trx`), not through `db`, so the lock and the transaction belong to the same connection.
 
 ### forUpdate
-The `forUpdate` method acquires an update lock on the selected rows in PostgreSQL and MySQL.
 
-:::note
-Make sure always to supply the transaction object using the `useTransaction` method before using `forUpdate` or similar locks.
-:::
+Acquire a write lock on the selected rows. Other transactions that try to read or modify the same rows block until your transaction commits or rolls back.
 
 ```ts
-const user = db
-  .from('users')
-  .where('id', 1)
-  .useTransaction(trx)
-  .forUpdate() // 👈
-  .first()
-```
-
-### forShare
-The `forShare` adds a **FOR SHARE in PostgreSQL** and a **LOCK IN SHARE MODE for MySQL** during a select statement.
-
-```ts
-const user = db
-  .from('users')
-  .where('id', 1)
-  .useTransaction(trx)
-  .forShare() // 👈
-  .first()
-```
-
-### skipLocked
-The `skipLocked` method skips the rows locked by another transaction. The method is only supported by MySQL 8.0+ and PostgreSQL 9.5+.
-
-```ts
-db
-  .from('users')
-  .where('id', 1)
-  .forUpdate()
-  .skipLocked() // 👈
-  .first()
-
-/**
-SELECT * FROM "users"
-WHERE "id" = 1
-FOR UPDATE SKIP LOCKED
-*/
-```
-
-### noWait
-The `noWait` method fails if any of the selected rows are locked by another transaction. The method is only supported by MySQL 8.0+ and PostgreSQL 9.5+.
-
-```ts
-db
-  .from('users')
-  .where('id', 1)
-  .forUpdate()
-  .noWait() // 👈
-  .first()
-
-/**
-SELECT * FROM "users"
-WHERE "id" = 1
-FOR UPDATE NOWAIT
-*/
-```
-
-### clone
-The `clone` method returns a new query builder object with all constraints applied from the original query.
-
-```ts
-const query = db.from('users').select('id', 'email')
-const clonedQuery = query.clone().clearSelect()
-
-await query // select "id", "email" from "users"
-await clonedQuery // select * from "users"
-```
-
-### debug
-The `debug` method allows enabling or disabling debugging at an individual query level. Here's a [complete guide](../guides/debugging.md) on debugging queries.
-
-```ts
-db
-  .from('users')
-  .debug(true)
-```
-
-### timeout
-Define the `timeout` for the query. An exception is raised after the timeout has been exceeded.
-
-The value of timeout is always in milliseconds.
-
-```ts
-db
-  .from('users')
-  .timeout(2000)
-```
-
-You can also cancel the query when using timeouts with MySQL and PostgreSQL.
-
-```ts
-db
-  .from('users')
-  .timeout(2000, { cancel: true })
-```
-
-### toSQL
-The `toSQL` method returns the query SQL and bindings as an object.
-
-```ts
-const output = db
-  .from('users')
-  .where('id', 1)
-  .toSQL()
-
-console.log(output)
-```
-
-The `toSQL` object also has the `toNative` method to format the SQL query as per the database dialect in use.
-
-```ts
-const output = db
-  .from('users')
-  .where('id', 1)
-  .toSQL()
-  .toNative()
-
-console.log(output)
-```
-
-### toQuery
-Returns the SQL query after applying the bind params.
-
-```ts
-const output = db
-  .from('users')
-  .where('id', 1)
-  .toQuery()
-
-console.log(output)
-// select * from "users" where "id" = 1
-```
-
-## Executing queries
-The query builder extends the native `Promise` class. You can execute the queries using the `await` keyword or chaining the `then/catch` methods.
-
-```ts
-db
-  .from('users')
-  .then((users) => {
-  })
-  .catch((error) => {
-  })
-```
-
-Using async/await
-
-```ts
-const users = await db.from('users')
-```
-
-Also, you can execute a query by explicitly calling the `exec` method.
-
-```ts
-const users = await db.from('users').exec()
-```
-
-### first
-The select queries always return an array of objects, even when the query is intended to fetch a single row. However, using the `first` method will give you the first row or null (when there are no rows).
-
-:::note
-
-First does NOT mean the first row in the table. It means the first row from the results array in whatever order you fetched it from the database.
-
-:::
-
-```ts
-const user = await db
-  .from('users')
-  .where('id', 1)
-  .first()
-
-if (user) {
-  console.log(user.id)
-}
-```
-
-### firstOrFail
-The `firstOrFail` method is similar to the `first` method except, it raises an exception when no rows are found.
-
-```ts
-const user = await db
-  .from('users')
-  .where('id', 1)
-  .firstOrFail()
-```
-
-## Pagination
-The query builder has first-class support for offset-based pagination. It also automatically counts the number of total rows by running a separate query behind the scenes.
-
-See also: [Pagination](../guides/pagination.md)
-
-```ts
-const page = request.input('page', 1)
-const limit = 20
-
-const results = await db
-  .from('users')
-  .paginate(page, limit)
-```
-
-The `paginate` method returns an instance of the [SimplePaginator](https://github.com/adonisjs/lucid/blob/21.x/src/database/paginator/simple_paginator.ts) class. The class has the following properties and methods.
-
-### firstPage
-Returns the number for the first page. It is always `1`.
-
-```ts
-results.firstPage
-```
-
-### perPage
-Returns the value for the limit passed to the `paginate` method.
-
-```ts
-results.perPage
-```
-
-### currentPage
-Returns the value of the current page.
-
-```ts
-results.currentPage
-```
-
-### lastPage
-Returns the value for the last page by taking the total of rows into account.
-
-```ts
-results.lastPage
-```
-
-### total
-Holds the value for the total number of rows in the database.
-
-```ts
-results.total
-```
-
-### hasPages
-A boolean to know if there are pages for pagination. You can rely on this value to decide when or when not to show the pagination links.
-
-Following is an example of the Edge view.
-
-```edge
-@if(results.hasPages)
-
-  {{-- Display pagination links --}}
-
-@endif
-```
-
-### hasMorePages
-A boolean to know if there are more pages to go after the current page.
-
-```ts
-results.hasMorePages
-```
-
-### all()
-Returns an array of rows returned by the SQL queries.
-
-```ts
-results.all()
-```
-
-### getUrl
-Returns the URL for a given page number.
-
-```ts
-result.getUrl(1) // /?page=1
-```
-
-### getNextPageUrl
-Returns the URL for the next page.
-
-```ts
-// Assuming the current page is 2
-
-result.getNextPageUrl() // /?page=3
-```
-
-### getPreviousPageUrl
-Returns the URL for the previous page.
-
-```ts
-// Assuming the current page is 2
-
-result.getPreviousPageUrl() // /?page=1
-```
-
-### getUrlsForRange
-Returns URLs for a given range. Helpful when you want to render links for a given range.
-
-Following is an example of using `getUrlsForRange` inside an Edge template.
-
-```edge
-@each(
-  link in results.getUrlsForRange(results.firstPage, results.lastPage)
-)
-  <a
-    href="{{ link.url }}"
-    class="{{ link.isActive ? 'active' : '' }}"
-  >
-    {{ link.page }}
-  </a>
-@endeach
-```
-
-### toJSON
-The `toJSON` method returns an object with `meta` and `data` properties. The output of the method is suitable for JSON API responses.
-
-```ts
-results.toJSON()
-
-/**
-{
-  meta: {
-    total: 200,
-    perPage: 20,
-    currentPage: 1,
-    firstPage: 1,
-    lastPage: 20,
-    ...
-  },
-  data: [
-    {
-    }
-  ]
-}
-*/
-```
-
-### baseUrl
-All of the URLs generated by the paginator class use the `/` (root) URL. However, you can change this by defining a custom base URL.
-
-```ts
-results.baseUrl('/posts')
-
-results.getUrl(2) // /posts?page=2
-```
-
-### queryString
-Define query string to be appended to the URLs generated by the paginator class.
-
-
-```ts
-results.queryString({ limit: 20, sort: 'top' })
-
-results.getUrl(2) // /?page=2&limit=20&sort=top
-```
-
-## Helpful properties and methods
-Following is the list of properties and methods you may occasionally need when building something on top of the query builder.
-
-### client
-Reference to the instance of the underlying [database query client](https://github.com/adonisjs/lucid/blob/develop/src/query_client/index.ts).
-
-```ts
-const query = db.query()
-console.log(query.client)
-```
-
-### knexQuery
-Reference to the instance of the underlying KnexJS query.
-
-```ts
-const query = db.query()
-console.log(query.knexQuery)
-```
-
-### hasAggregates
-A boolean to know if the query is using any of the aggregate methods.
-
-```ts
-const query = db.from('posts').count('* as total')
-console.log(query.hasAggregates) // true
-```
-
-### hasGroupBy
-A boolean to know if the query is using a group by clause.
-
-```ts
-const query = db.from('posts').groupBy('tenant_id')
-console.log(query.hasGroupBy) // true
-```
-
-### hasUnion
-A boolean to know if the query is using a union.
-
-```ts
-const query = db
-  .from('users')
-  .whereNull('last_name')
-  .union((query) => {
-    query.from('users').whereNull('first_name')
-  })
-
-console.log(query.hasUnion) // true
-```
-
-### clearSelect
-Call this method to clear selected columns.
-
-```ts
-const query = db.query().select('id', 'title')
-query.clone().clearSelect()
-```
-
-### clearWhere
-Call this method to clear where clauses.
-
-```ts
-const query = db.query().where('id', 1)
-query.clone().clearWhere()
-```
-
-### clearOrder
-Call this method to clear the order by constraint.
-
-```ts
-const query = db.query().orderBy('id', 'desc')
-query.clone().clearOrder()
-```
-
-### clearHaving
-Call this method to clear the having clause.
-
-```ts
-const query = db.query().having('total', '>', 100)
-query.clone().clearHaving()
-```
-
-### clearLimit
-Call this method to clear the applied limit.
-
-```ts
-const query = db.query().limit(20)
-query.clone().clearLimit()
-```
-
-### clearOffset
-Call this method to clear the applied offset.
-
-```ts
-const query = db.query().offset(20)
-query.clone().clearOffset()
-```
-
-### reporterData
-The query builder emits the `db:query` event and reports the query's execution time with the framework profiler.
-
-Using the `reporterData` method, you can pass additional details to the event and the profiler.
-
-```ts
-const query = db.from('users')
-
-await query
-  .reporterData({ userId: auth.user.id })
-  .select('*')
-```
-
-Within the `db:query` event, you can access the value of `userId` as follows.
-
-```ts
-Event.on('db:query', (query) => {
-  console.log(query.userId)
+await db.transaction(async (trx) => {
+  const wallet = await trx
+    .from('wallets')
+    .where('user_id', userId)
+    .forUpdate()
+    .first()
+
+  // safe to modify the row inside the transaction
 })
 ```
 
-### withSchema
-Specify the PostgreSQL schema to use when executing the query.
+### forShare
+
+Acquire a shared lock. Other transactions can read but not modify the rows. PostgreSQL emits `FOR SHARE`; MySQL emits `LOCK IN SHARE MODE`.
 
 ```ts
-db
-  .from('users')
-  .withSchema('public')
-  .select('*')
+await db.transaction(async (trx) => {
+  await trx
+    .from('users')
+    .where('id', 1)
+    .forShare()
+    .first()
+})
 ```
 
-### as
-Specify the alias for a given query. Usually helpful when passing the query builder instance as a subquery. For example:
+### skipLocked
+
+Skip rows that another transaction has locked instead of waiting. Available on PostgreSQL 9.5+ and MySQL 8.0+.
 
 ```ts
-db
-  .from('users')
-  .select(
-    db
-      .from('user_logins')
-      .select('ip_address')
-      .whereColumn('users.id', 'user_logins.user_id')
-      .orderBy('id', 'desc')
-      .limit(1)
-      .as('last_login_ip') // 👈 Query alias
-  )
+await db.transaction(async (trx) => {
+  const job = await trx
+    .from('jobs')
+    .where('status', 'pending')
+    .forUpdate()
+    .skipLocked()
+    .first()
+})
 ```
+
+### noWait
+
+Fail immediately when any selected row is locked, instead of blocking. Available on PostgreSQL 9.5+ and MySQL 8.0+.
+
+```ts
+await db.transaction(async (trx) => {
+  await trx
+    .from('jobs')
+    .where('id', 1)
+    .forUpdate()
+    .noWait()
+    .first()
+})
+```
+
+## Executing the query
+
+The query builder is a `Promise`. You can `await` it directly, iterate the result, or use the dedicated execution helpers below.
+
+```ts
+const users = await db.from('users').where('is_active', true)
+```
+
+### first
+
+Return the first matching row, or `null` when no row matches.
+
+```ts
+const user = await db.from('users').where('email', email).first()
+```
+
+### firstOrFail
+
+Return the first matching row, or throw a `RowNotFoundException` when no row matches. Convenient for controllers that should respond with a 404 when the record does not exist.
+
+```ts
+const user = await db.from('users').where('id', params.id).firstOrFail()
+```
+
+### Inside a transaction
+
+To run a query inside a transaction, build it directly off the transaction client. The `trx` object exposes the same `.from`, `.query`, and other entry points as the `db` service. See the [transactions guide](../guides/transactions.md) for the full pattern.
+
+```ts
+await db.transaction(async (trx) => {
+  const users = await trx
+    .from('users')
+    .where('is_active', true)
+})
+```
+
+## Conditional builders
+
+These methods let you add query constraints based on application state, without scattering `if` statements through the chain.
 
 ### if
 
-The `if` helper allows you to conditionally add constraints to the query builder. For example:
+Apply a callback only when the condition is truthy. The callback receives the query builder.
 
 ```ts
-db
+const search = request.input('search')
+
+const users = await db
   .from('users')
-  .if(searchQuery, (query) => {
-    query.where('first_name', 'like', `%${searchQuery}%`)
-    query.where('last_name', 'like', `%${searchQuery}%`)
+  .if(search, (query) => {
+    query.whereILike('email', `%${search}%`)
   })
-``` 
+```
 
-You can define the `else` method by passing another callback as the second argument.
+Pass a fallback callback as the third argument for the false branch.
 
 ```ts
 db
-  .from('users')
-  .if(
-    condition,
-    (query) => {}, // if condition met
-    (query) => {}, // otherwise execute this
-  )
+  .from('posts')
+  .if(includeDrafts, (query) => query, (query) => query.where('status', 'published'))
 ```
 
 ### unless
-The `unless` method is opposite of the `if` helper.
+
+The inverse of `if`: apply the callback only when the condition is falsy.
 
 ```ts
 db
-  .from('projects')
-  .unless(filters.status, () => {
-    /**
-     * Fetch projects with "active" status when
-     * not status is defined in filters
-     */
-    query.where('status', 'active')
+  .from('posts')
+  .unless(currentUser.isAdmin, (query) => {
+    query.where('status', 'published')
   })
-``` 
-
-You can pass another callback which gets executed when the `unless` statement isn't true.
-
-```ts
-db
-  .from('users')
-  .unless(
-    condition,
-    (query) => {}, // if condition met
-    (query) => {}, // otherwise execute this
-  )
 ```
 
 ### match
-The `match` helper allows you define an array of conditional blocks to match from and execute the corresponding callback.
 
-In the following example, the query builder will go through all the conditional blocks and executes the first matching one and discards the other. **Think of it as a `switch` statement in JavaScript**.
+Apply the first callback whose guard is truthy, or an optional default callback when none match. Reads cleanly when several mutually exclusive conditions are in play.
 
 ```ts
 db
-  .query()
+  .from('posts')
   .match(
-    [
-      // Run this is user is a super user
-      auth.isSuperUser, (query) => query.whereIn('status', ['published', 'draft'])
-    ],
-    [
-      // Run this is user is loggedin
-      auth.user, (query) => query.where('user_id', auth.user.id)
-    ],
-    // Otherwise run this
-    (query) => query.where('status', 'published').where('is_public', true)
+    [request.input('status') === 'draft', (query) => query.where('status', 'draft')],
+    [request.input('status') === 'published', (query) => query.where('status', 'published')],
+    (query) => query.whereNot('status', 'archived')
   )
 ```
 
-### ifDialect
-The `ifDialect` helper allows you to conditionally add constraints to the query builder when dialect matches one of the mentioned dialects.
+### ifDialect and unlessDialect
+
+Apply a callback only when the connection's dialect matches (or does not match) one of the given names. Useful for writing dialect-specific SQL fragments without manual checks.
 
 ```ts
 db
   .from('users')
-  .query()
   .ifDialect('postgres', (query) => {
-      query.whereJson('address', { city: 'XYZ', pincode: '110001' })
-    }, 
-  )
+    query.select(db.raw(`to_char(created_at, 'YYYY-MM-DD') as created_date`))
+  })
+  .unlessDialect(['sqlite3', 'better-sqlite3'], (query) => {
+    query.forUpdate()
+  })
 ```
 
-You can define the else method by passing another callback as the second argument.
-```ts
-db
-  .from('users')
-  .ifDialect('postgres',
-    (query) => {}, // if dialect is postgres
-    (query) => {}, // otherwise execute this
-  )
-```
+Dialect names accepted: `postgres`, `mysql`, `mysql2`, `mssql`, `sqlite3`, `better-sqlite3`, `libsql`, `oracledb`, `redshift`.
 
-### unlessDialect
-The `unlessDialect` method is opposite of the `ifDialect` helper.
+## Inspecting and debugging
+
+### toSQL
+
+Return a `{ sql, bindings }` object describing the SQL the query will execute, without running it. Useful for logging, debugging, or composing with `db.rawQuery`.
 
 ```ts
-db
-  .from('users')
-  .unlessDialect('postgres', (query) => {
-      query.whereJson('address', { city: 'XYZ', pincode: '110001' })
-    } 
-  )
+const { sql, bindings } = db.from('users').where('is_active', true).toSQL()
 ```
 
-You can pass another callback which gets executed when the `unlessDialect` statement isn't true.
+### toQuery
+
+Return the query as a single interpolated string, with bindings substituted. Convenient for ad-hoc inspection. Prefer `toSQL` + bindings when forwarding to logs to avoid quoting issues.
+
 ```ts
-db
-  .from('users')
-  .query()
-  .unlessDialect('postgres',
-    (query) => {}, // if dialect is anything other than postgres
-    (query) => {}  // otherwise execute this
-  )
+const sql = db.from('users').where('is_active', true).toQuery()
 ```
+
+### debug
+
+Enable debug output for this query only. The query is emitted on the `db:query` event when at least one listener is attached.
+
+```ts
+db.from('users').debug(true)
+```
+
+See the [debugging guide](../guides/debugging.md) for the full debug workflow, including pretty-printing and `asyncStackTraces`.
+
+### timeout
+
+Abort the query if it runs longer than the given number of milliseconds. Pass `{ cancel: true }` on PostgreSQL and MySQL to cancel the underlying query.
+
+```ts
+db.from('users').timeout(5000)
+db.from('users').timeout(5000, { cancel: true })
+```
+
+### clone
+
+Return a copy of the builder that can be modified without affecting the original. Useful when one base query feeds multiple variants.
+
+```ts
+const baseQuery = db.from('posts').where('is_published', true)
+
+const recent = await baseQuery.clone().orderBy('created_at', 'desc').limit(10)
+const popular = await baseQuery.clone().orderBy('views', 'desc').limit(10)
+```
+
+### reporterData
+
+Attach arbitrary metadata to the `db:query` event payload, accessible to listeners. Useful for tagging queries with request IDs, user IDs, or feature flags for observability.
+
+```ts
+const posts = await db
+  .from('posts')
+  .where('is_published', true)
+  .reporterData({ userId: auth.user.id, source: 'feed' })
+```
+
+```ts
+// title: start/events.ts
+import emitter from '@adonisjs/core/services/emitter'
+
+emitter.on('db:query', (query) => {
+  console.log(query.userId, query.source)
+})
+```
+
+See the [debugging guide](../guides/debugging.md) for the full `db:query` event payload.
+
+## Schema and escape hatches
+
+### withSchema
+
+Set a non-default schema for the query (PostgreSQL, MSSQL).
+
+```ts
+db.from('users').withSchema('analytics')
+```
+
+### knexQuery
+
+Return the underlying Knex query builder. Use this when you need a Knex method that Lucid does not expose, such as `rowNumber` or other analytic helpers.
+
+```ts
+const rankings = await db
+  .knexQuery()
+  .from('scores')
+  .select('user_id', 'points')
+  .rowNumber('rank', { column: 'points', order: 'desc' })
+```
+
+The result is shaped by Knex rather than Lucid, so you lose Lucid's typed result. See [Drop to Knex](../guides/database_service.md#drop-to-knex) in the database service guide for the broader discussion.

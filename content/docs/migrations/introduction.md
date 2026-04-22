@@ -1,46 +1,45 @@
 ---
-summary: Use migrations to create and modify SQL tables
+summary: Write, run, and roll back database migrations using Lucid's BaseSchema API, including data migrations with this.defer, multi-connection workflows, and programmatic execution.
 ---
 
 # Schema migrations
 
-Schema migrations are the version control for your database. Think of them as independent scripts written in TypeScript to alter your database schema over time.
+This guide covers writing and running migrations. You will learn how to:
 
-Here's how migrations work in a nutshell.
+- Create a migration and understand its structure
+- Use the `BaseSchema` API to evolve your database schema
+- Perform data migrations safely with `this.defer`
+- Run, roll back, and refresh migrations
+- Handle production safety with advisory locks, dry runs, and rollback restrictions
+- Manage migrations across multiple database connections
+- Execute migrations programmatically from application code
 
-You make a new migration file for every database schema change (i.e., create or alter table).
+## Overview
 
-- Within the migration file, you will write the statements to perform the required actions.
-- Run migrations using the AdonisJS command-line tool.
-- AdonisJS will keep track of executed migrations. This ensures that every migration runs only once.
-- During development, you can also roll back migrations to edit them.
+Schema migrations are version-controlled scripts that evolve your database schema over time. Each migration is a TypeScript file with `up()` and `down()` methods that apply or revert a schema change. AdonisJS tracks which migrations have run inside the `adonis_schema` table, so each migration runs exactly once per database.
 
-## Creating your first migration
+Lucid is migrations-first: you write migrations to evolve the database, run them, and Lucid generates typed schema classes from the resulting tables. Models extend those generated classes. See the [introduction](../guides/introduction.md#the-database-is-the-source-of-truth) for the broader philosophy and the [schema generation guide](./schema_generation.md) for the regenerate-after-migration workflow.
 
-You can create a new migration by running the following Ace command. The migration files are stored inside the `database/migrations` directory.
+## Creating a migration
 
-:::note
-You can also create a Lucid model and the migration together by running the `node ace make:model -m` flag.
-:::
+Use the `make:migration` command to scaffold a new migration file inside `database/migrations`. The filename is timestamp-prefixed so files run in the order they were created.
 
 ```sh
-node ace make:migration users
-
-# CREATE: database/migrations/1630981615472_create_users_table.ts
+// title: terminal
+node ace make:migration users --create=users
+// CREATE: database/migrations/1720000000000_create_users_table.ts
 ```
 
-If you will notice, the migration filename is prefixed with some numeric value. We add the current timestamp to the filename so that the migration files are sorted in the order created.
+Pass `--alter=table_name` instead of `--create` when you are altering an existing table. See the [commands reference](../guides/commands.md#make-migration) for the full flag list.
 
-### Migration class structure
+You can also generate a migration alongside a model with `node ace make:model User --migration`.
 
-A migration class always extends the [BaseSchema](https://github.com/adonisjs/lucid/blob/develop/src/schema/main.ts) class and must implement the `up` and the `down` methods.
+## The migration class
 
-- The `up` method is used to evolve the database schema further. Usually, you will create new tables/indexes or alter existing tables inside this method.
-- The `down` method is used to roll back the actions executed by the `up` method. For example, if the up method creates a table, the down method should drop the same table.
-
-Both methods have access to the [Schema builder](./schema_builder.md) that you can use to construct SQL DDL queries.
+A migration class extends `BaseSchema` and must implement `up` (apply the change) and `down` (revert the change). The class also exposes helpers for raw SQL, deferred operations, and direct query client access.
 
 ```ts
+// title: database/migrations/1720000000000_create_users_table.ts
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
@@ -49,6 +48,8 @@ export default class extends BaseSchema {
   async up() {
     this.schema.createTable(this.tableName, (table) => {
       table.increments('id')
+      table.string('email').unique().notNullable()
+      table.string('password').notNullable()
       table.timestamp('created_at', { useTz: true })
       table.timestamp('updated_at', { useTz: true })
     })
@@ -60,540 +61,483 @@ export default class extends BaseSchema {
 }
 ```
 
-## Run & rollback migrations
+The `tableName` property is a convention rather than a feature. Set it once at the top of the class so the same value can be reused in `up`, `down`, and any helper methods.
 
-Once you have created the migration files you need, you can run the following Ace command to process migrations. For example, the `migration:run` command executes the `up` method on all the migration files.
-
-```sh
-node ace migration:run
-```
-
-SQL statements for every migration file are wrapped inside a transaction. So if one statement fails, all other statements within the same file will roll back.
-
-Also, in case of failure, the subsequent migrations will be aborted. However, the migrations before the failed migration stay in the completed state.
-
-### Tracking completed migrations
-
-AdonisJS tracks the file path of executed migrations inside the `adonis_schema` database table. This is done to avoid re-running the same migration files.
-
-Following are the columns inside the `adonis_schema` table.
-
-```sql
-+----+----------------------------------------------+-------+----------------------------------+
-| id |                     name                     | batch |          migration_time          |
-+----+----------------------------------------------+-------+----------------------------------+
-|  1 | database/migrations/1587988332388_users      |     1 | 2021-08-26 10:41:31.176333+05:30 |
-|  2 | database/migrations/1592489784670_api_tokens |     1 | 2021-08-26 10:41:31.2074+05:30   |
-+----+----------------------------------------------+-------+----------------------------------+
-```
-
-- **name**: Path to the migration file. It is always relative to the project root.
-- **batch**: The batch under which the migration was executed. The batch number is incremented every time you run the `migration:run` command.
-- **migration_time**: Migration execution timestamp.
-
-### Rollback migrations
-
-You can roll back migrations by running the `migration:rollback` command. The rollback action is performed on the migrations from the most recent batch. However, you can also specify a custom batch number until which you want to roll back.
-
-```sh
-# Rollback the latest batch
-node ace migration:rollback
-
-# Rollback until the start of the migration
-node ace migration:rollback --batch=0
-
-# Rollback until batch 1
-node ace migration:rollback --batch=1
-```
-
-The `migration:reset` command is basically an alias for `migration:rollback --batch=0`. This will rollback all of your application's migrations:
-
-```sh
-node ace migration:reset
-```
-
-To rollback a specific number of migrations, you can use the `--step` flag.
-
-```sh
-# Rollback the last 3 migrations
-node ace migration:rollback --step=3
-```
-
-The rollback command executes the `down` method of the migration class. Like the `up` method, the SQL statements of the `down` method are also wrapped inside a database transaction.
-
-### Rollback and migrate using a single command
-
-The `migration:refresh` command will rollback all of your migrations and then execute the `migration:run` command. This command effectively re-creates your entire database:
-
-```sh
-node ace migration:refresh
-
-# Refresh the database and run all seeders
-node ace migration:refresh --seed
-```
-
-### Drop tables and migrate
-
-Unlike the `migration:refresh` command, the `migration:fresh` command will not run the `down` method of the migration files. Instead, it will drop all the tables using the `db:wipe` command and then run the `migration:run` command.
-
-```sh
-node ace migration:fresh
-
-# Drop all tables, migrate, and run seeders
-node ace migration:fresh --seed
-```
-
-:::warning
-
-`migration:fresh` and `db:wipe` commands will drop all database tables. These commands should be used with caution when developing on a database that is shared with other applications.
-
-:::
-
-### Avoid rollback in production
-
-Performing a rollback during development is perfectly fine since there is no fear of data loss. However, performing a rollback in production is not an option in the majority of cases. Consider the following example:
-
-- You create and run a migration to set up the `users` table.
-- Over time, this table has received data since the app is running in production.
-- Your product has evolved, and now you want to add a new column to the `users` table.
-
-You cannot simply roll back, edit the existing migration, and re-run it because the rollback will drop the `users` table.
-
-Instead, you should create a new migration file to alter the existing `users` table by adding the required column. In other words, migrations should always move forward.
-
-### Squash migrations using schema dumps
-
-As your application grows, the number of migration files can also grow significantly. Replaying the full migration history on every fresh database can become slow, especially during automated tests and local setup.
-
-You can squash older migrations into a schema dump using the `schema:dump` command.
-
-```sh
-node ace schema:dump
-```
-
-By default, Lucid stores the dump inside the `database/schema` directory using the active connection name.
-
-```txt
-database/schema/primary-schema.sql
-database/schema/primary-schema.meta.json
-```
-
-The `*.sql` file contains the structural database schema plus Lucid's migration bookkeeping tables. The `*.meta.json` file is stored next to the SQL dump and contains the list of migrations that were intentionally squashed into the baseline.
-
-Currently, schema dumps are supported for the following database drivers.
-
-- SQLite
-- MySQL
-- PostgreSQL
-
-Since Lucid uses the database native CLI tools to create and restore dumps, the required binaries must be installed on the machine where you run the commands.
-
-- SQLite: `sqlite3`
-- MySQL: `mysqldump` and `mysql`
-- PostgreSQL: `pg_dump` and `psql`
-
-Once a schema dump exists, `migration:run` will automatically restore it before running pending migrations when the target database has not executed any migrations yet.
-
-This means the high-level flow becomes:
-
-- Restore the stored schema dump.
-- Restore Lucid's migration bookkeeping tables.
-- Run only the migration files created after the dump.
-
-#### Prune old migration files
-
-You can remove older migration files after creating the dump using the `--prune` flag.
-
-```sh
-node ace schema:dump --prune
-```
-
-:::warning
-
-The `--prune` flag deletes the configured migration directories entirely. Therefore, every path inside `migrations.paths` must point to a dedicated migrations directory and should not contain any other files.
-
-:::
-
-After pruning:
-
-- `migration:status` marks intentionally removed migrations as `squashed`.
-- `migration:rollback` and `migration:reset` skip missing migrations that were squashed into the dump.
-- Missing migrations that are not part of the dump manifest are still treated as corrupt history.
-
-#### Custom dump path
-
-You can store the schema dump at a custom location using the `--path` flag.
-
-```sh
-node ace schema:dump --path=tmp/schema/baseline.sql
-```
-
-To restore a custom dump path later, pass the same path to `migration:run` or `migration:fresh`.
-
-```sh
-node ace migration:run --schema-path=tmp/schema/baseline.sql
-node ace migration:fresh --schema-path=tmp/schema/baseline.sql
-```
-
-#### Re-squashing migrations
-
-Schema dumps can be created multiple times over the lifetime of your application.
-
-For example:
-
-- You create and run some migrations.
-- You run `node ace schema:dump --prune`.
-- You create and run more migrations.
-- Later, you run `node ace schema:dump --prune` again.
-
-When you re-squash, Lucid creates a brand new baseline from the current database state and replaces the existing dump and manifest files. After that, only migrations created after the latest dump will run on a fresh database.
-
-As a best practice, always make sure your local database is up to date before creating a new schema dump.
-
-## Create a table
-
-You can use the `schema.createTable` method to create a new database table. The method accepts the table name as the first argument and a callback function to define the table columns.
-
-```ts
-import { BaseSchema } from '@adonisjs/lucid/schema'
-
-export default class extends BaseSchema {
-  protected tableName = 'users'
-
-  async up() {
-    // highlight-start
-    this.schema.createTable(this.tableName, (table) => {
-      table.increments('id')
-      table.timestamp('created_at', { useTz: true })
-      table.timestamp('updated_at', { useTz: true })
-    })
-    // highlight-end
-  }
-
-  async down() {
-    this.schema.dropTable(this.tableName)
-  }
-}
-```
-
-<div class="doc-cta-wrapper">
-
-[Schema builder reference guide →](./schema_builder.md)
-
-</div>
-
-## Alter table
-
-You can alter an existing database table using the `schema.alterTable` method. The method accepts the table name as the first argument and a callback function to alter/add the table columns.
-
-```ts
-export default class extends BaseSchema {
-  async up() {
-    // highlight-start
-    this.schema.alterTable('user', (table) => {
-      table.dropColumn('name')
-      table.string('first_name')
-      table.string('last_name')
-    })
-    // highlight-end
-  }
-}
-```
-
-## Rename/drop table
-
-You can rename the table using the `schema.renameTable`. The method accepts the existing table name as the first argument and the new name as the second argument.
-
-```ts
-export default class extends BaseSchema {
-  // highlight-start
-  async up() {
-    this.schema.renameTable('user', 'app_users')
-  }
-  // highlight-end
-}
-```
-
-You can drop the table using the `schema.dropTable`. The method accepts the table name as the only argument.
-
-```ts
-export default class extends BaseSchema {
-  // highlight-start
-  async down() {
-    this.schema.dropTable('users')
-  }
-  // highlight-end
-}
-```
-
-## Dry run
-
-The dry run mode of migrations lets you view the SQL queries in the console instead of executing them. Just pass the `--dry-run` flag to the migration commands to turn on the dry run mode.
-
-```sh
-# Run
-node ace migration:run --dry-run
-
-# Rollback
-node ace migration:rollback --dry-run
-```
-
-## Performing other database operations
-
-Quite often, you will have requirements to run SQL queries other than just creating/altering tables. For example: Migrating data to a newly created table before deleting the old table.
-
-You should define these operations using the `this.defer` method, as shown below.
-
-:::note
-We migrate the emails from the `users` table to the `user_emails` table in the following example.
-:::
-
-```ts
-export default class extends BaseSchema {
-  async up() {
-    this.schema.createTable('user_emails', (table) => {
-      // table columns
-    })
-
-    // highlight-start
-    this.defer(async (db) => {
-      const users = await db.from('users').select('*')
-      await Promise.all(
-        users.map((user) => {
-          return db.table('user_emails').insert({ user_id: user.id, email: user.email })
-        })
-      )
-    })
-    // highlight-end
-
-    this.schema.alterTable('users', (table) => {
-      table.dropColumn('email')
-    })
-  }
-}
-```
-
-Wrapping your database queries inside the `this.defer` method makes sure they are not executed when running migrations in **dry run** mode.
-
-## Changing migrations database connection
-
-You can manage the database connection for migrations in a couple of different ways.
-
-### Separate migration source
-
-The first option is to keep migrations separate for each database connection. This is usually helpful when each database connection queries different tables. For example, you are using a different database for users data and a different database for products data.
-
-Define the migrations path next to the database connection config.
-
-```ts
-{
-  users: {
-    client: 'mysql2',
-    migrations: {
-      // highlight-start
-      paths: ['./database/users/migrations']
-      // highlight-end
-    }
-  },
-  products: {
-    client: 'mysql2',
-    migrations: {
-      // highlight-start
-      paths: ['./database/products/migrations']
-      // highlight-end
-    }
-  }
-}
-```
-
-When creating a new migration, define the `--connection` flag, and the command will create the file in the correct directory.
-
-```sh
-node ace make:migration --connection=products
-```
-
-When running the migrations, the `--connection` flag will run migrations only from the selected connection directory.
-
-```sh
-node ace migration:run --connection=products
-```
-
-### Shared migrations
-
-If you want to run the same migrations under a different database connection, you can use the `--connection` flag. The migrations will use the config from the selected connection to run the migrations.
-
-This option is helpful for multi-tenant applications, where you want to switch connections every time you run the migration.
-
-```sh
-node ace migration:run --connection=tenantA
-```
-
-## A note on advisory locks
-
-We obtain an advisory lock with the database server to ensure that only one process is running migrations at a time. The advisory locks are supported only by `pg` and `mysql` drivers and you can disable locking system using the `--disable-locks` command-line flag.
-
-```sh
-node ace migration:run --disable-locks
-node ace migration:refresh --disable-locks
-node ace migration:rollback --disable-locks
-```
-
-## Running migrations programmatically
-
-Using the `MigrationRunner` module, you can run migrations programmatically. This is usually helpful when running migrations from a web interface and not the command line.
-
-Following is an example of running the migrations from a route and returning a list of migrated files in the response.
-
-```ts
-import db from '@adonisjs/lucid/services/db'
-import app from '@adonisjs/core/services/app'
-import router from '@adonisjs/core/services/router'
-import { MigrationRunner } from '@adonisjs/lucid/migration'
-
-router.get('/', async () => {
-  const migrator = new MigrationRunner(db, app, {
-    direction: 'up',
-    dryRun: false,
-    // connectionName: 'pg',
-  })
-
-  await migrator.run()
-  return migrator.migratedFiles
-})
-```
-
-- The `direction = up` means to run the `up` method inside the migration files. You can set the `direction = down` to roll back the migrations.
-
-- Enabling the `dryRun` will not execute the queries but instead collect them inside the `queries` array.
-
-- You can also optionally define the `connectionName` property to execute the migrations against a specific database connection.
-
-### migratedFiles
-
-The `migrator.migratedFiles` is an object. The key is the unique name (derived from the file path), and the value is another object of migration file properties.
-
-```json
-{
-  "database/migrations/1623289360244_users": {
-    "status": "completed",
-    "queries": [],
-    "file": {
-      "filename": "1623289360244_users.ts",
-      "absPath": "/path/to/project/database/migrations/1623289360244_users.ts",
-      "name": "database/migrations/1623289360244_users"
-    },
-    "batch": 1
-  }
-}
-```
-
-- The `status` will be one of **"pending"**, **"completed"**, or **"error"**.
-- The `queries` array contains an array of executed queries. Only when `dryRun` is enabled.
-- The `file` property holds the information for the migration file.
-- The `batch` property tells the batch in which the migration was executed.
-
-### getList
-
-The `migrator.getList` method returns a list of all the migrations, including the completed and the pending ones. This is the same list you see when running the `node ace migration:status` command.
-
-```ts
-await migrator.getList()
-```
-
-```json
-[
-  {
-    "name": "database/migrations/1623289360244_users",
-    "status": "pending"
-  }
-]
-```
-
-### status
-
-Returns the current `status` of the migrator. It will always be one of the following.
-
-- The `pending` status means no the `migrator.run` method has not been called yet.
-- The `completed` status means the migrations were successfully executed.
-- The `error` status means there was an error in the migration process. You can read the actual error from the `migrator.error` property in case of error status.
-- The `skipped` status means there were no migrations to run or rollback.
-
-## Migrations config
-
-The `migration` object defined on every database connection is used to configure the migration system of Lucid. Following is the list of available options.
-
-```ts
-{
-  migrations: {
-    naturalSort: true,
-    paths: ['database/migrations'],
-    disableRollbacksInProduction: true,
-    disableTransactions: false,
-    tableName: 'adonis_schema',
-  }
-}
-```
+Inside `up` and `down`, the following members are available on the class:
 
 <dl>
 
 <dt>
 
-naturalSort
+this.schema
 
 </dt>
 
 <dd>
 
-Use natural sort to sort the files inside the migrations directory.
+The Knex schema builder used to define `createTable`, `alterTable`, `renameTable`, `dropTable`, indexes, and other DDL operations. See the [schema builder reference](./schema_builder.md) and the [table builder reference](./table_builder.md) for the full method set.
 
 </dd>
 
 <dt>
 
-paths
+this.now(precision?)
 
 </dt>
 
-An array of directories to scan and load migration files. All files ending with `.ts` or `.js` are imported and executed as migration files.
-
 <dd>
+
+Returns a raw `CURRENT_TIMESTAMP` expression for use as a column default. Pass an optional precision (number of fractional second digits).
+
+```ts
+table.timestamp('created_at').defaultTo(this.now())
+```
 
 </dd>
 
 <dt>
 
-disableRollbacksInProduction
+this.raw(sql, bindings?)
 
 </dt>
 
 <dd>
 
-A security flag to disable accidental rollbacks in production environment. Rollback actions defined inside a migration file are usually destructive like **dropping a table**, **removing a column**, and so on. Therefore, we recommend disabling rollbacks in production.
+Returns a raw SQL fragment for use inside schema operations or column defaults. Accepts the same bindings format as the [raw query builder](../query_builders/raw.md).
+
+```ts
+table.uuid('id').defaultTo(this.raw('gen_random_uuid()'))
+```
 
 </dd>
 
 <dt>
 
-disableTransactions
+this.knex()
 
 </dt>
 
 <dd>
 
-Disable use of transactions when executing migration files. By default, we start one transaction for every migration file.
+Returns the underlying Knex query builder for the migration's connection. Useful for advanced operations the schema builder does not expose.
 
 </dd>
 
 <dt>
 
-tableName
+this.db
 
 </dt>
 
 <dd>
 
-The table name for tracking state of executed migration files. Defaults to `adonis_schema`.
+The `QueryClientContract` for the migration's connection. Use it inside `this.defer` callbacks to read and write data. See [Data migrations](#data-migrations).
+
+</dd>
+
+<dt>
+
+this.dryRun
+
+</dt>
+
+<dd>
+
+`true` when the migration is being executed in dry-run mode. Read this flag inside custom logic that should be skipped during dry runs.
+
+</dd>
+
+<dt>
+
+static disableTransactions
+
+</dt>
+
+<dd>
+
+Set to `true` on the class to skip wrapping this migration in a transaction. Use when the migration includes statements that cannot run inside a transaction (such as PostgreSQL's `CREATE INDEX CONCURRENTLY`).
+
+```ts
+export default class extends BaseSchema {
+  static disableTransactions = true
+  // ...
+}
+```
 
 </dd>
 
 </dl>
+
+## Common schema operations
+
+The schema builder exposes the operations you reach for most often. The examples below show the shape; for the complete API, see the [schema builder](./schema_builder.md) and [table builder](./table_builder.md) references.
+
+```ts
+// Create a table
+this.schema.createTable('posts', (table) => {
+  table.increments('id')
+  table.string('title').notNullable()
+  table.timestamps(true, true)
+})
+
+// Alter an existing table
+this.schema.alterTable('users', (table) => {
+  table.string('first_name')
+  table.string('last_name')
+  table.dropColumn('name')
+})
+
+// Rename a table
+this.schema.renameTable('user', 'users')
+
+// Drop a table
+this.schema.dropTable('users')
+```
+
+## Data migrations
+
+Schema migrations sometimes need to move or transform data, not just change structure. Common cases include backfilling a new column from an existing one, splitting a column into two, or copying data between tables before dropping the source.
+
+Data operations belong inside `this.defer(callback)`. Deferred callbacks receive the query client and run only when migrations actually execute, so they are skipped during `--dry-run`. They also run in the order they were registered, interleaved with schema operations.
+
+```ts
+// title: database/migrations/1720000010000_split_user_name.ts
+import { BaseSchema } from '@adonisjs/lucid/schema'
+
+export default class extends BaseSchema {
+  async up() {
+    this.schema.alterTable('users', (table) => {
+      table.string('first_name')
+      table.string('last_name')
+    })
+
+    this.defer(async (db) => {
+      const users = await db.from('users').select('id', 'name')
+      for (const user of users) {
+        const [first, ...rest] = user.name.split(' ')
+        await db
+          .from('users')
+          .where('id', user.id)
+          .update({ first_name: first, last_name: rest.join(' ') })
+      }
+    })
+
+    this.schema.alterTable('users', (table) => {
+      table.dropColumn('name')
+    })
+  }
+
+  async down() {
+    this.schema.alterTable('users', (table) => {
+      table.string('name')
+    })
+
+    this.defer(async (db) => {
+      const users = await db.from('users').select('id', 'first_name', 'last_name')
+      for (const user of users) {
+        await db
+          .from('users')
+          .where('id', user.id)
+          .update({ name: `${user.first_name} ${user.last_name}`.trim() })
+      }
+    })
+
+    this.schema.alterTable('users', (table) => {
+      table.dropColumn('first_name')
+      table.dropColumn('last_name')
+    })
+  }
+}
+```
+
+The `db` argument inside the callback is the same `QueryClientContract` available as `this.db`. You can use the [database query builder](../query_builders/select.md), [insert query builder](../query_builders/insert.md), or [raw queries](../query_builders/raw.md) inside `defer`.
+
+For large data migrations on production tables, batch your work to keep transactions short and avoid long table locks. Consider running the data migration in a separate migration file from the schema change, so each step can be reviewed and deployed independently.
+
+## Running and rolling back migrations
+
+Lucid ships with Ace commands for every stage of the migration lifecycle. The flags for each command are documented in the [commands reference](../guides/commands.md); this section explains when to reach for which command.
+
+`migration:run` applies every pending migration in order, records each one in the `adonis_schema` table, and regenerates `database/schema.ts` so your models inherit the new column types.
+
+```sh
+node ace migration:run
+```
+
+`migration:rollback` reverts the most recent batch of migrations by calling each migration's `down` method. Pass `--step=N` to revert a specific number of files, or `--batch=N` to revert to a specific batch number.
+
+```sh
+node ace migration:rollback
+node ace migration:rollback --step=1
+node ace migration:rollback --batch=0   # roll back everything
+```
+
+`migration:reset` is shorthand for `migration:rollback --batch=0`.
+
+`migration:refresh` rolls back every migration and runs them again, calling `down` then `up` on each file. Useful in development when you want a clean rebuild while preserving the migration history. Pass `--seed` to also run seeders after the refresh.
+
+`migration:fresh` drops every table in the database and re-runs migrations from scratch. It does not call `down`, so it is faster than `refresh` and works even when some `down` methods are broken. Pass `--seed` to run seeders too.
+
+For projects with long migration histories, replaying every file in CI or on a new contributor's machine becomes a bottleneck. See the [schema dumps guide](./schema_dumps.md) for bootstrapping fresh databases from a SQL snapshot and for squashing old migrations into a single baseline.
+
+`migration:status` lists every migration file and its current state.
+
+```sh
+node ace migration:status
+```
+
+The output groups migrations by batch and marks each as `completed`, `pending`, or `error`.
+
+### How tracking works
+
+Lucid records every applied migration in the `adonis_schema` table:
+
+| Column | Description |
+| --- | --- |
+| `name` | Path to the migration file relative to the project root |
+| `batch` | Batch number, incremented by one for every `migration:run` invocation |
+| `migration_time` | Timestamp when the migration was applied |
+
+The batch number is what `migration:rollback` uses to pick which files to revert. A single `migration:run` invocation produces one batch, regardless of how many files run.
+
+## Production safety
+
+Migrations on production databases are higher-stakes than local development. Lucid offers several mechanisms to make them safer.
+
+### Advisory locks
+
+Before running migrations, Lucid acquires an advisory lock on the database to prevent concurrent migration runs from racing against each other (for example, two CI deployments rolling out at the same time). Advisory locks are supported on PostgreSQL and MySQL.
+
+```
+acquired migration lock
+```
+
+If you need to skip the lock (for example, when running migrations against a database that does not support advisory locks, or when an earlier crashed run left a stale lock), pass `--disable-locks`.
+
+```sh
+node ace migration:run --disable-locks
+```
+
+### Disable rollback in production
+
+Set `disableRollbacksInProduction: true` on the connection's `migrations` config to refuse rollback commands when `NODE_ENV=production`. This prevents accidental destructive operations on a production database. See the [configuration guide](../guides/configuration.md#migrations-config) for the full migrations config reference.
+
+```ts
+// title: config/database.ts
+{
+  migrations: {
+    disableRollbacksInProduction: true,
+  }
+}
+```
+
+The corollary is that production schema changes should always move forward. When you need to undo a previous migration, write a new migration that reverses it explicitly rather than rolling back. This keeps the migration history aligned across every environment.
+
+### Dry runs
+
+Pass `--dry-run` to `migration:run` or `migration:rollback` to print the SQL without executing it. Use this in code review or before applying a high-risk migration to verify the generated SQL matches your intent.
+
+```sh
+node ace migration:run --dry-run
+```
+
+Operations defined inside `this.defer` are skipped during a dry run, since they execute their own queries that the dry-run pipeline cannot inspect. Plan around this when reviewing migrations that include data backfills.
+
+### Per-migration transactions
+
+By default, Lucid wraps every migration file in a transaction so partial failures roll back cleanly. Some operations cannot run inside a transaction — PostgreSQL's `CREATE INDEX CONCURRENTLY` is the most common example. Disable transactions for those migrations by setting `static disableTransactions = true` on the class.
+
+```ts
+export default class extends BaseSchema {
+  static disableTransactions = true
+
+  async up() {
+    this.schema.raw('CREATE INDEX CONCURRENTLY posts_title_idx ON posts (title)')
+  }
+}
+```
+
+To disable transactions for every migration globally, set `disableTransactions: true` in the connection's `migrations` config.
+
+## Multiple connections
+
+Applications that use more than one database connection can either keep separate migrations per connection or share migrations across them.
+
+### Separate migrations per connection
+
+Each connection points to its own migration directory. Use this when each database has different tables.
+
+```ts
+// title: config/database.ts
+{
+  users: {
+    client: 'pg',
+    migrations: {
+      paths: ['./database/users/migrations'],
+    },
+  },
+  products: {
+    client: 'pg',
+    migrations: {
+      paths: ['./database/products/migrations'],
+    },
+  },
+}
+```
+
+Pass `--connection=name` to scaffold and run migrations against a specific connection.
+
+```sh
+node ace make:migration --connection=products
+node ace migration:run --connection=products
+```
+
+### Shared migrations across connections
+
+When the same schema is replicated across connections (for example, a multi-tenant setup with one database per tenant), share a single migration directory and switch the connection at runtime.
+
+```sh
+node ace migration:run --connection=tenant_a
+node ace migration:run --connection=tenant_b
+```
+
+The migration files run against the selected connection's database, using its own `adonis_schema` table to track state.
+
+## Running migrations programmatically
+
+For tools that need to run migrations from outside the CLI (an admin panel, a setup wizard, a custom deployment script), use the `MigrationRunner` class directly.
+
+```ts
+// title: app/controllers/migrations_controller.ts
+import type { HttpContext } from '@adonisjs/core/http'
+import db from '@adonisjs/lucid/services/db'
+import app from '@adonisjs/core/services/app'
+import { MigrationRunner } from '@adonisjs/lucid/migration'
+
+export default class MigrationsController {
+  async run({ response }: HttpContext) {
+    const migrator = new MigrationRunner(db, app, {
+      direction: 'up',
+      dryRun: false,
+    })
+
+    await migrator.run()
+
+    return response.ok({
+      status: migrator.status,
+      files: migrator.migratedFiles,
+      error: migrator.error?.message,
+    })
+  }
+}
+```
+
+The runner accepts the following options:
+
+<dl>
+
+<dt>
+
+direction
+
+</dt>
+
+<dd>
+
+`'up'` to apply pending migrations or `'down'` to roll back. Required.
+
+</dd>
+
+<dt>
+
+dryRun
+
+</dt>
+
+<dd>
+
+When `true`, the SQL is collected without executing. The collected queries appear in `migratedFiles[name].queries`.
+
+</dd>
+
+<dt>
+
+connectionName
+
+</dt>
+
+<dd>
+
+Run against a non-default connection.
+
+</dd>
+
+<dt>
+
+disableLocks
+
+</dt>
+
+<dd>
+
+Skip the advisory lock acquired around the migration run.
+
+</dd>
+
+</dl>
+
+After `run()` resolves, inspect the runner's properties to see what happened.
+
+<dl>
+
+<dt>
+
+migrator.status
+
+</dt>
+
+<dd>
+
+One of `'pending'`, `'completed'`, `'error'`, or `'skipped'`. `pending` means `run()` has not been called yet, `completed` means migrations applied successfully, `error` means a migration threw, and `skipped` means there was nothing to do.
+
+</dd>
+
+<dt>
+
+migrator.migratedFiles
+
+</dt>
+
+<dd>
+
+An object keyed by migration file name with each value containing `status` (`'pending'`, `'completed'`, or `'error'`), `batch`, `file` metadata, and `queries` (populated only in dry-run mode).
+
+</dd>
+
+<dt>
+
+migrator.error
+
+</dt>
+
+<dd>
+
+The error thrown by the failing migration, when `status === 'error'`.
+
+</dd>
+
+<dt>
+
+migrator.getList()
+
+</dt>
+
+<dd>
+
+Returns the same list of migrations and statuses that `migration:status` shows. Useful for building a status UI.
+
+</dd>
+
+</dl>
+
+The runner is an `EventEmitter` and emits `migration:start` and `migration:completed` events for each file, which lets you stream progress to a UI.
