@@ -308,6 +308,8 @@ export default class Reports extends BaseCommand {
 
 `db.manager.close(name)` closes a specific connection, and `db.manager.closeAll()` closes every open connection at once. Call `db.manager.isConnected(name)` when a diagnostic command or health check needs to know whether a named connection has been opened yet.
 
+See the [connection manager guide](./connection_manager.md) for the full `db.manager` API, including runtime registration, config patching, and lifecycle events.
+
 :::warning
 Do not close connections from ordinary HTTP request handlers. Later code in the same process can try to reuse the connection and fail.
 
@@ -394,3 +396,4 @@ The result shape comes from Knex rather than Lucid's typed builder, so you lose 
 - [Raw query builder guide](../query_builders/raw.md) for raw SQL fragments and bindings.
 - [Transactions guide](./transactions.md) for managed transactions, isolation levels, and savepoints.
 - [Debugging guide](./debugging.md) for connection-level debug mode and pretty-printed SQL.
+- [Connection manager guide](./connection_manager.md) for inspecting, opening, closing, and patching connections through `db.manager`.
