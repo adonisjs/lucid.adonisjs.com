@@ -4,7 +4,7 @@ summary: Reference for every Lucid Ace command, including scaffolding, migration
 
 # Commands
 
-This guide is the reference for every Ace command Lucid ships with. Commands fall into four families: `make:*` for scaffolding files, `migration:*` for applying and rolling back schema changes, `db:*` for seeding and clearing data, and `schema:*` for working with the generated `database/schema.ts` file and schema dumps.
+This guide is the reference for every Ace command Lucid ships with. Commands fall into four families: `make:*` for scaffolding files, `migration:*` for applying and rolling back schema changes, `db:*` for managing the database lifecycle and its data, and `schema:*` for working with the generated `database/schema.ts` file and schema dumps.
 
 Every command accepts the flags documented below alongside AdonisJS's standard command flags (like `--help`).
 
@@ -838,6 +838,82 @@ node ace migration:status
 <dd>
 
 List status for the given connection.
+
+</dd>
+
+</dl>
+
+## db\:create
+
+Creates the database of the given connection when it does not exist yet. The command is a no-op when the database already exists, which makes it safe to run in bootstrap scripts and CI pipelines before `migration:run`.
+
+Since the target database may not exist, Lucid does not use the regular connection. Instead, it connects to the maintenance database of the dialect (`postgres` on PostgreSQL and Redshift, `master` on MSSQL, no database on MySQL) to issue the `CREATE DATABASE` statement. On SQLite and libSQL, the database file is created alongside any missing parent directories.
+
+```sh
+// title: terminal
+node ace db:create
+```
+
+```
+❯ Created database "blog"
+```
+
+<dl>
+
+<dt>
+
+--connection, -c &lt;name&gt;
+
+</dt>
+
+<dd>
+
+Create the database of the given connection instead of the default.
+
+</dd>
+
+</dl>
+
+:::note
+
+The database user must have the privilege to create databases (a global privilege on MySQL). The command is not supported on OracleDB.
+
+:::
+
+## db\:drop
+
+Drops the database of the given connection. Unlike `db:wipe`, which drops the tables inside the database, `db:drop` deletes the database itself. On SQLite and libSQL, the database file is removed from the disk.
+
+In production, the command asks for confirmation unless the `--force` flag is provided.
+
+```sh
+// title: terminal
+node ace db:drop
+```
+
+<dl>
+
+<dt>
+
+--connection, -c &lt;name&gt;
+
+</dt>
+
+<dd>
+
+Drop the database of the given connection instead of the default.
+
+</dd>
+
+<dt>
+
+--force
+
+</dt>
+
+<dd>
+
+Explicitly allow the command to run in production, skipping the confirmation prompt.
 
 </dd>
 
