@@ -253,7 +253,7 @@ import { UserSchema } from '#database/schema'
 import Skill from '#models/skill'
 
 export default class User extends UserSchema {
-  @manyToMany(() => Skill)
+  @manyToMany(() => Skill, { pivotTable: 'user_skills' })
   declare skills: ManyToMany<typeof Skill>
 }
 ```
