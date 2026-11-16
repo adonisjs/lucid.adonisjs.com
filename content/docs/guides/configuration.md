@@ -1161,7 +1161,7 @@ Lucid regenerates `database/schema.ts` automatically after every migration run. 
     enabled: true,
     outputPath: 'database/schema.ts',
     excludeTables: ['knex_migrations', 'adonis_schema_versions'],
-    rulesPaths: ['database/schema_rules.ts'],
+    rulesPaths: ['./database/schema_rules.ts'],
   },
 }
 ```
@@ -1212,7 +1212,7 @@ rulesPaths
 
 <dd>
 
-Array of paths to schema rules files. These files can override type mappings, column names, and other generator behavior on a per-table or per-column basis. See the [schema classes guide](../models/schema_classes.md) for the rules reference.
+Array of import identifiers of schema rules files. These files can override type mappings, column names, and other generator behavior on a per-table or per-column basis. An entry that starts with `./` or `../` resolves from the project root, and an entry that starts with `#` is a subpath import. Any other entry is the name of a package, so write `./database/schema_rules.ts`, not `database/schema_rules.ts`. See the [schema classes guide](../models/schema_classes.md) for the rules reference.
 
 </dd>
 
