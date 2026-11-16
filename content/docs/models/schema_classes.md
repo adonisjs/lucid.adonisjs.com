@@ -75,7 +75,7 @@ The internal type is also the key you target when [customizing types with schema
 | Internal type | Default TypeScript type | Description |
 | --- | --- | --- |
 | `number` | `number` | Integer and floating-point columns |
-| `bigint` | `bigint \| number` | Large integers. The union default covers both drivers that return bigints as JavaScript `number` (when the value fits) and as `bigint` (when it does not). Override with a schema rule if your driver is consistent. |
+| `bigint` | `bigint \| number` | Large integers. The union default covers both drivers that return bigints as JavaScript `number` (when the value fits) and as `bigint` (when it does not). Override with a schema rule if your driver is consistent. On PostgreSQL, node-postgres returns `bigint` values as strings, so type them as `string` with a [global type rule](#global-type-rules). |
 | `decimal` | `string` | Decimal types with precision. Defaults to `string` to preserve exact precision; override to `number` when application-side precision loss is acceptable. |
 | `boolean` | `boolean` | Boolean columns |
 | `string` | `string` | All text and character types |
@@ -601,6 +601,22 @@ export default {
 ```
 
 With these rules, every JSON column becomes `JSON<any>`, and every bigint column becomes TypeScript `bigint`.
+
+On PostgreSQL, node-postgres returns `bigint` values as strings, not as numbers. The following rule types every bigint column as `string`, so the generated type matches the value the driver returns.
+
+```ts
+// title: database/schema_rules.ts
+import { type SchemaRules } from '@adonisjs/lucid/types/schema_generator'
+
+export default {
+  types: {
+    bigint: {
+      tsType: 'string',
+      decorators: [{ name: '@column' }],
+    },
+  },
+} satisfies SchemaRules
+```
 
 ### Global column rules
 
