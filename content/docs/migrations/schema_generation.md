@@ -183,10 +183,16 @@ The `schemaGeneration` config block accepts a `rulesPaths` array pointing at Typ
   schemaGeneration: {
     enabled: true,
     outputPath: 'database/schema.ts',
-    rulesPaths: ['database/schema_rules.ts'],
+    rulesPaths: ['./database/schema_rules.ts'],
   },
 }
 ```
+
+Each entry of `rulesPaths` is an import identifier, not a file path. Lucid imports it with the importer of your application, so it resolves like an `import` statement:
+
+- An entry that starts with `./` or `../` resolves from the project root.
+- An entry that starts with `#` is a [subpath import](https://nodejs.org/api/packages.html#subpath-imports) from the `imports` field of `package.json`.
+- Any other entry is the name of a package. For example, `database/schema_rules.ts` without the `./` prefix fails, because Node.js looks for a package named `database`.
 
 ```ts
 // title: database/schema_rules.ts
