@@ -23,11 +23,11 @@ When migrations run, Lucid writes one class per table to `database/schema.ts`. E
 import { DateTime } from 'luxon'
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 
-export class PostsSchema extends BaseModel {
+export class PostSchema extends BaseModel {
   static table = 'posts'
 
   static $columns = ['id', 'title', 'content', 'createdAt', 'updatedAt'] as const
-  $columns = PostsSchema.$columns
+  $columns = PostSchema.$columns
 
   @column({ isPrimary: true })
   declare id: number
@@ -48,6 +48,8 @@ export class PostsSchema extends BaseModel {
 
 A few things worth knowing about the generated output:
 
+- The class name is the singular table name in PascalCase, followed by `Schema`. The `posts` table gives `PostSchema`, and the `blog_posts` table gives `BlogPostSchema`.
+- `static table` holds the table name. A table outside the default schema (`public` on PostgreSQL, `dbo` on MSSQL) gives `<schema>.<table>`, for example `static table = 'app.orders'`.
 - Column names are converted from snake_case to camelCase. `created_at` in the database becomes `createdAt` on the model, with `columnName: 'created_at'` recorded internally so queries address the correct column.
 - The `static $columns` tuple drives autocomplete. Methods like `query().select(...)` use this tuple to offer type-safe column name completion.
 - Primary key columns are detected from the database and decorated with `@column({ isPrimary: true })`.
@@ -59,10 +61,42 @@ Your model extends the generated class and adds behavior.
 
 ```ts
 // title: app/models/post.ts
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
-export default class Post extends PostsSchema {}
+export default class Post extends PostSchema {}
 ```
+
+A model does not inherit `static table` from its schema class. Lucid gets the table name of a model from the model class name. For a table outside the default schema, set `static table` on the model too.
+
+```ts
+// title: app/models/order.ts
+import { AppOrderSchema } from '#database/schema'
+
+export default class Order extends AppOrderSchema {
+  static table = 'app.orders'
+}
+```
+
+### Tables with the same name in two schemas
+
+When two tables give the same class name, the class of each table outside the default schema starts with its schema name in PascalCase. For example, the `public.orders` and `app.orders` tables of a PostgreSQL database give these classes.
+
+```ts
+// title: database/schema.ts
+export class OrderSchema extends BaseModel {
+  static table = 'orders'
+  // ...
+}
+
+export class AppOrderSchema extends BaseModel {
+  static table = 'app.orders'
+  // ...
+}
+```
+
+When both tables are outside the default schema, both class names start with their schema name, for example `AppOrderSchema` and `BillingOrderSchema`. A class name that is unique keeps its name, also for a table outside the default schema.
+
+When a class name still collides after the schema prefix, `schema:generate` fails with an error that names the tables, and does not write the file. Exclude one of the tables with `schemaGeneration.excludeTables`, or rename it.
 
 ## Column type reference
 
@@ -265,7 +299,7 @@ export default class extends BaseSchema {
 
 ```ts
 // title: app/models/post.ts
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
 export const PostStatus = {
   DRAFT: 0,
@@ -275,7 +309,7 @@ export const PostStatus = {
 
 export type PostStatus = (typeof PostStatus)[keyof typeof PostStatus]
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   get isDraft() {
     return this.status === PostStatus.DRAFT
   }
@@ -332,9 +366,9 @@ The second is a [model-level override](#overriding-columns-on-the-model) for one
 // title: app/models/post.ts
 import type { JSON } from '#types/db'
 import { column } from '@adonisjs/lucid/orm'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   @column()
   declare metadata: JSON<{ seoTitle?: string; keywords?: string[] }>
 }
@@ -350,7 +384,7 @@ Every date and timestamp column maps to a Luxon `DateTime` instance, so dates ha
 
 ```ts
 // title: app/models/post.ts
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
 const post = await Post.findOrFail(params.id)
 
@@ -396,7 +430,7 @@ export default class extends BaseSchema {
 
 ```ts
 // title: database/schema.ts (generated)
-export class OauthStatesSchema extends BaseModel {
+export class OauthStateSchema extends BaseModel {
   static table = 'oauth_states'
 
   @column({ isPrimary: true })
@@ -414,9 +448,9 @@ When your primary key is not named `id`, also set `static primaryKey` on your ap
 
 ```ts
 // title: app/models/oauth_state.ts
-import { OauthStatesSchema } from '#database/schema'
+import { OauthStateSchema } from '#database/schema'
 
-export default class OauthState extends OauthStatesSchema {
+export default class OauthState extends OauthStateSchema {
   static primaryKey = 'key'
 }
 ```
@@ -480,6 +514,8 @@ tables
 
 Per-table rules. Each table entry can define its own `types`, `columns`, `skipColumns`, and `primaryKey` that apply only to that table.
 
+The key is the table name or `<schema>.<table>`, as in `excludeTables`. A `<schema>.<table>` key, for example `'app.orders'`, applies only to the table of that schema. A table name key, for example `orders`, applies to the table of that name in each schema. When both keys match a table, the rules of the `<schema>.<table>` key win.
+
 </dd>
 
 <dt>
@@ -505,6 +541,8 @@ For each column, the generator walks a five-step lookup in this order and uses t
 3. **Global column rule** at `columns[columnName]`
 4. **Primary key rule** result, when the column is the detected primary key
 5. **Global type rule** at `types[internalType]`
+
+Steps 1 and 2 look in `tables['<schema>.<table>']` first, and then in `tables[tableName]`.
 
 More specific rules win over less specific rules. A table column rule overrides a global column rule, which overrides a global type rule.
 
@@ -857,9 +895,9 @@ Override by re-declaring the column on your model with a compatible type.
 // title: app/models/post.ts
 import type { JSON } from '#types/db'
 import { column } from '@adonisjs/lucid/orm'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   @column()
   declare metadata: JSON<Partial<{
     title: string
@@ -1017,9 +1055,9 @@ The pattern is: declare a private backing field under `$attributes` and expose a
 ```ts
 // title: app/models/user.ts
 import { column } from '@adonisjs/lucid/orm'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @column({ columnName: 'avatar_path' })
   declare avatarPath: string | null
 
