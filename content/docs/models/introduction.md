@@ -193,6 +193,24 @@ When `selfAssignPrimaryKey` is `true`, Lucid passes the primary key in the INSER
 
 </dd>
 
+<dt>
+
+columnAliasPrefix
+
+</dt>
+
+<dd>
+
+The prefix of the column aliases that [columnsForSelect](./query_builder.md#columnsforselect) selects. Defaults to the table name, so the `email` column of the `users` table gets the alias `users_email`. Set it when a column of the table has the same name as the alias of another column, for example the columns `url` and `semafor_url` of the `semafor` table. A child model does not inherit it.
+
+```ts
+export default class Semafor extends SemaforSchema {
+  static columnAliasPrefix = 'sm'
+}
+```
+
+</dd>
+
 </dl>
 
 ## Creating, finding, and updating instances

@@ -10,6 +10,7 @@ This guide covers the methods exclusive to the model query builder. You will lea
 - Load relationship aggregates with `withCount` and `withAggregate`
 - Filter rows by relationship presence with `has` and `whereHas`
 - Compose reusable queries with model scopes
+- Select model columns with table-qualified aliases for joins
 - Shape the returned rows with `pojo`, `sideload`, and `rowTransformer`
 - Paginate model queries for API responses and templates
 
@@ -221,6 +222,36 @@ const teams = await Team
     scopes.forUser(auth.user)
     scopes.active()
   })
+```
+
+## Selecting columns for joins
+
+### columnsForSelect
+
+When a query joins another table, both tables can have columns with the same name, for example `id`. The database returns one value for each name, so the model can get the value of the other table. `columnsForSelect` returns each column of the model with a table-qualified alias. Pass the result to `select`, and Lucid maps each alias back to its model property when it hydrates the rows.
+
+```ts
+const users = await User
+  .query()
+  .select(User.columnsForSelect())
+  .join('posts', 'users.id', 'posts.user_id')
+
+// SELECT "users"."id" AS "users_id", ...
+```
+
+Each alias has the form `<table>_<column>`. For the `users` table, the `email` column gets the alias `users_email`. Use `User.$getColumnAlias('email')` to get the alias of one column.
+
+Lucid matches the aliases on each query, also on a query that does not use `columnsForSelect`. When a table has a column named like the alias of another column, Lucid assigns its value to the wrong property. For example, the `semafor` table has the columns `url` and `semafor_url`. The alias of the `url` column is `semafor_url`, so the value of the `semafor_url` column goes to the `url` property, and the `semaforUrl` property stays empty.
+
+Set the `columnAliasPrefix` static property to use a different prefix in place of the table name. With the prefix `sm`, the aliases are `sm_url` and `sm_semafor_url`, and each column goes to its own property.
+
+```ts
+// title: app/models/semafor.ts
+import { SemaforSchema } from '#database/schema'
+
+export default class Semafor extends SemaforSchema {
+  static columnAliasPrefix = 'sm'
+}
 ```
 
 ## Transforming results
