@@ -41,14 +41,14 @@ For the full flag list on each command, see the [commands reference](../guides/c
 
 ## The generated file
 
-By default, the generated file lives at `database/schema.ts`. Each table in the database becomes a schema class, named by converting the table name to PascalCase and appending `Schema`.
+By default, the generated file lives at `database/schema.ts`. Each table in the database becomes a schema class, named by converting the singular table name to PascalCase and appending `Schema`.
 
 ```ts
 // title: database/schema.ts (excerpt)
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
-export class UsersSchema extends BaseModel {
+export class UserSchema extends BaseModel {
   static table = 'users'
 
   @column({ isPrimary: true })
@@ -67,7 +67,7 @@ export class UsersSchema extends BaseModel {
   declare updatedAt: DateTime
 }
 
-export class PostsSchema extends BaseModel {
+export class PostSchema extends BaseModel {
   static table = 'posts'
 
   @column({ isPrimary: true })
@@ -79,9 +79,9 @@ export class PostsSchema extends BaseModel {
 
 A few conventions worth knowing:
 
-- Table names are pluralized in the database and become PascalCase + `Schema` in the generated file (`users` → `UsersSchema`, `blog_posts` → `BlogPostsSchema`).
+- Table names are pluralized in the database and become singular PascalCase + `Schema` in the generated file (`users` → `UserSchema`, `blog_posts` → `BlogPostSchema`). When two schemas have a table of the same name, see [tables with the same name in two schemas](../models/schema_classes.md#tables-with-the-same-name-in-two-schemas).
 - Column names are converted from snake_case to camelCase on the model property (`created_at` → `createdAt`).
-- The `static table` property records the original database table name so the model resolves back to the correct table at query time.
+- The `static table` property records the original database table name. A table outside the default schema (`public` on PostgreSQL, `dbo` on MSSQL) gives `<schema>.<table>`. A model does not inherit `static table` from its schema class, so set it on the model when the model class name does not give the table name.
 - The file is overwritten on every generation, so any manual edits to `database/schema.ts` are lost. Customize through schema rules or model-level overrides instead.
 
 ## Running schema:generate manually
@@ -159,9 +159,9 @@ node ace make:model Post
 
 ```ts
 // title: app/models/user.ts
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {}
+export default class User extends UserSchema {}
 ```
 
 **5. Decide how the schema will evolve.** Two paths from here:
