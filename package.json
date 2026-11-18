@@ -42,7 +42,7 @@
     "typescript": "^5.9.3",
     "undici": "^7.22.0",
     "unpoly": "^3.12.1",
-    "vite": "^7.3.1"
+    "vite": "^7.3.5"
   },
   "dependencies": {
     "@adonisjs/core": "^7.0.0",
