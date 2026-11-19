@@ -308,6 +308,8 @@ Migrations on production databases are higher-stakes than local development. Luc
 
 Before running migrations, Lucid acquires an advisory lock on the database to prevent concurrent migration runs from racing against each other (for example, two CI deployments rolling out at the same time). Advisory locks are supported on PostgreSQL and MySQL.
 
+Lucid acquires the lock and runs each migration on the same database session, so the lock stays held for as long as a migration runs. If that session ends during a migration, the migration fails and the command reports its error.
+
 ```
 acquired migration lock
 ```
