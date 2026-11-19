@@ -193,9 +193,9 @@ Query scopes are reusable query fragments defined on the model class. The [query
 
 ```ts
 import { scope } from '@adonisjs/lucid/orm'
-import { TeamsSchema } from '#database/schema'
+import { TeamSchema } from '#database/schema'
 
-export default class Team extends TeamsSchema {
+export default class Team extends TeamSchema {
   static forUser = scope((query, user: User) => {
     query.whereIn(
       'id',

@@ -46,10 +46,10 @@ Extend the generated class in your model. Columns are inherited automatically, s
 // title: app/models/post.ts
 import { belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 import User from './user.js'
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   @belongsTo(() => User, { foreignKey: 'authorId' })
   declare author: BelongsTo<typeof User>
 
@@ -104,10 +104,10 @@ Active Record collapses that duplication by placing behavior directly on the mod
 import { beforeSave, hasMany } from '@adonisjs/lucid/orm'
 import type { HasMany } from '@adonisjs/lucid/types/relations'
 import { DateTime } from 'luxon'
-import { SubscriptionsSchema } from '#database/schema'
+import { SubscriptionSchema } from '#database/schema'
 import Invoice from './invoice.js'
 
-export default class Subscription extends SubscriptionsSchema {
+export default class Subscription extends SubscriptionSchema {
   @hasMany(() => Invoice)
   declare invoices: HasMany<typeof Invoice>
 

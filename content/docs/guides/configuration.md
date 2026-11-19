@@ -713,9 +713,9 @@ For models that always live on a non-default connection, set `static connection`
 
 ```ts
 // title: app/models/daily_signup.ts
-import { DailySignupsSchema } from '#database/schema'
+import { DailySignupSchema } from '#database/schema'
 
-export default class DailySignup extends DailySignupsSchema {
+export default class DailySignup extends DailySignupSchema {
   static connection = 'analytics'
 }
 ```

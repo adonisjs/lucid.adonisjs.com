@@ -30,9 +30,9 @@ Use the `scope()` helper to wrap a callback and assign it to a static property o
 // title: app/models/post.ts
 import { DateTime } from 'luxon'
 import { scope } from '@adonisjs/lucid/orm'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   static published = scope((query) => {
     query.where('publishedOn', '<=', DateTime.utc().toSQLDate())
   })
@@ -71,9 +71,9 @@ Scope callbacks accept additional arguments after the query. Pass them through w
 // title: app/models/project.ts
 import User from '#models/user'
 import { scope } from '@adonisjs/lucid/orm'
-import { ProjectsSchema } from '#database/schema'
+import { ProjectSchema } from '#database/schema'
 
-export default class Project extends ProjectsSchema {
+export default class Project extends ProjectSchema {
   static visibleTo = scope((query, user: User) => {
     if (user.isAdmin) {
       return
@@ -105,11 +105,11 @@ Because `scope` is a static property on an arbitrary model class, TypeScript can
 import { DateTime } from 'luxon'
 import { scope } from '@adonisjs/lucid/orm'
 import { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
 type Builder = ModelQueryBuilderContract<typeof Post>
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   static notDeleted = scope((query) => {
     query.whereNull('deletedAt')
   })
@@ -125,7 +125,7 @@ export default class Post extends PostsSchema {
 When a composed scope also accepts arguments, cast the `query` parameter inside the callback. The scope callback signature ties the `query` type to the rest of the arguments, so an explicit cast on the first line keeps the call site clean.
 
 ```ts
-export default class Project extends ProjectsSchema {
+export default class Project extends ProjectSchema {
   static notArchived = scope((query) => {
     query.whereNull('archivedAt')
   })

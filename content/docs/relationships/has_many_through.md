@@ -20,11 +20,11 @@ A `hasManyThrough` relationship reaches a related model through an intermediate 
 // title: app/models/country.ts
 import { hasManyThrough } from '@adonisjs/lucid/orm'
 import type { HasManyThrough } from '@adonisjs/lucid/types/relations'
-import { CountriesSchema } from '#database/schema'
+import { CountrySchema } from '#database/schema'
 import Post from '#models/post'
 import User from '#models/user'
 
-export default class Country extends CountriesSchema {
+export default class Country extends CountrySchema {
   @hasManyThrough([() => Post, () => User])
   declare posts: HasManyThrough<typeof Post>
 }
