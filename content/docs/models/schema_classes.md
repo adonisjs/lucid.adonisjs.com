@@ -16,7 +16,7 @@ For the generation workflow itself (when `schema:generate` runs, adopting legacy
 
 ## Anatomy of a generated schema class
 
-When migrations run, Lucid writes one class per table to `database/schema.ts`. Each class extends `BaseModel`, declares a `static table`, exposes a readonly `$columns` tuple of column names, and declares every column with the appropriate `@column` decorator.
+When migrations run, Lucid writes one class per table to `database/schema.ts`. Each class extends `BaseModel`, exposes a readonly `$columns` tuple of column names, and declares every column with the appropriate `@column` decorator.
 
 ```ts
 // title: database/schema.ts
@@ -24,8 +24,6 @@ import { DateTime } from 'luxon'
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 
 export class PostSchema extends BaseModel {
-  static table = 'posts'
-
   static $columns = ['id', 'title', 'content', 'createdAt', 'updatedAt'] as const
   $columns = PostSchema.$columns
 
@@ -49,7 +47,7 @@ export class PostSchema extends BaseModel {
 A few things worth knowing about the generated output:
 
 - The class name is the singular table name in PascalCase, followed by `Schema`. The `posts` table gives `PostSchema`, and the `blog_posts` table gives `BlogPostSchema`.
-- `static table` holds the table name. A table outside the default schema (`public` on PostgreSQL, `dbo` on MSSQL) gives `<schema>.<table>`, for example `static table = 'app.orders'`.
+- A generated class declares no `static table`. The model sets it when it needs it, as shown below.
 - Column names are converted from snake_case to camelCase. `created_at` in the database becomes `createdAt` on the model, with `columnName: 'created_at'` recorded internally so queries address the correct column.
 - The `static $columns` tuple drives autocomplete. Methods like `query().select(...)` use this tuple to offer type-safe column name completion.
 - Primary key columns are detected from the database and decorated with `@column({ isPrimary: true })`.
@@ -66,7 +64,7 @@ import { PostSchema } from '#database/schema'
 export default class Post extends PostSchema {}
 ```
 
-A model does not inherit `static table` from its schema class. Lucid gets the table name of a model from the model class name. For a table outside the default schema, set `static table` on the model too.
+A model does not inherit `static table` from its schema class. Lucid gets the table name of a model from the model class name. A model of a table outside the default schema (`public` on PostgreSQL, `dbo` on MSSQL) sets `static table = '<schema>.<table>'` itself.
 
 ```ts
 // title: app/models/order.ts
@@ -84,12 +82,10 @@ When two tables give the same class name, the class of each table outside the de
 ```ts
 // title: database/schema.ts
 export class OrderSchema extends BaseModel {
-  static table = 'orders'
   // ...
 }
 
 export class AppOrderSchema extends BaseModel {
-  static table = 'app.orders'
   // ...
 }
 ```
@@ -431,8 +427,6 @@ export default class extends BaseSchema {
 ```ts
 // title: database/schema.ts (generated)
 export class OauthStateSchema extends BaseModel {
-  static table = 'oauth_states'
-
   @column({ isPrimary: true })
   declare key: string
 
