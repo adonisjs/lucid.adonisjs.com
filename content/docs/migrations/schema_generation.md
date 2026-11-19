@@ -49,8 +49,6 @@ import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
 export class UserSchema extends BaseModel {
-  static table = 'users'
-
   @column({ isPrimary: true })
   declare id: number
 
@@ -68,8 +66,6 @@ export class UserSchema extends BaseModel {
 }
 
 export class PostSchema extends BaseModel {
-  static table = 'posts'
-
   @column({ isPrimary: true })
   declare id: number
 
@@ -81,7 +77,7 @@ A few conventions worth knowing:
 
 - Table names are pluralized in the database and become singular PascalCase + `Schema` in the generated file (`users` → `UserSchema`, `blog_posts` → `BlogPostSchema`). When two schemas have a table of the same name, see [tables with the same name in two schemas](../models/schema_classes.md#tables-with-the-same-name-in-two-schemas).
 - Column names are converted from snake_case to camelCase on the model property (`created_at` → `createdAt`).
-- The `static table` property records the original database table name. A table outside the default schema (`public` on PostgreSQL, `dbo` on MSSQL) gives `<schema>.<table>`. A model does not inherit `static table` from its schema class, so set it on the model when the model class name does not give the table name.
+- A generated class declares no `static table`. Lucid gets the table name of a model from the model class name. A model of a table outside the default schema (`public` on PostgreSQL, `dbo` on MSSQL) sets `static table = '<schema>.<table>'` itself.
 - The file is overwritten on every generation, so any manual edits to `database/schema.ts` are lost. Customize through schema rules or model-level overrides instead.
 
 ## Running schema:generate manually
