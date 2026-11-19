@@ -19,10 +19,10 @@ A `hasOne` relationship declares that another model holds a foreign key pointing
 // title: app/models/user.ts
 import { hasOne } from '@adonisjs/lucid/orm'
 import type { HasOne } from '@adonisjs/lucid/types/relations'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 import Profile from '#models/profile'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @hasOne(() => Profile)
   declare profile: HasOne<typeof Profile>
 }

@@ -21,9 +21,9 @@ A hook is a static method on a model that Lucid invokes before or after a specif
 // title: app/models/user.ts
 import hash from '@adonisjs/core/services/hash'
 import { beforeSave } from '@adonisjs/lucid/orm'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @beforeSave()
   static async hashPassword(user: User) {
     if (user.$dirty.password) {
@@ -63,9 +63,9 @@ Register a hook by decorating a static method on the model class with the matchi
 ```ts
 // title: app/models/project.ts
 import { afterSave } from '@adonisjs/lucid/orm'
-import { ProjectsSchema } from '#database/schema'
+import { ProjectSchema } from '#database/schema'
 
-export default class Project extends ProjectsSchema {
+export default class Project extends ProjectSchema {
   @afterSave()
   static async syncToAlgolia(project: Project) {
     const syncService = await app.container.make(AlgoliaSyncService)
@@ -109,9 +109,9 @@ Fires before both `INSERT` and `UPDATE`. Use it for invariants that apply to bot
 ```ts
 import hash from '@adonisjs/core/services/hash'
 import { beforeSave } from '@adonisjs/lucid/orm'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @beforeSave()
   static async hashPassword(user: User) {
     if (user.$dirty.password) {
@@ -129,9 +129,9 @@ Fires after both `INSERT` and `UPDATE`. Use it for side effects that follow a su
 
 ```ts
 import { afterSave } from '@adonisjs/lucid/orm'
-import { ProjectsSchema } from '#database/schema'
+import { ProjectSchema } from '#database/schema'
 
-export default class Project extends ProjectsSchema {
+export default class Project extends ProjectSchema {
   @afterSave()
   static async syncToAlgolia(project: Project) {
     const syncService = await app.container.make(AlgoliaSyncService)
@@ -146,9 +146,9 @@ Fires before the `INSERT` only. Use it to assign server-generated defaults that 
 
 ```ts
 import { beforeCreate } from '@adonisjs/lucid/orm'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @beforeCreate()
   static assignAvatar(user: User) {
     user.avatarUrl = getRandomAvatar()
@@ -162,9 +162,9 @@ Fires after the `INSERT` succeeds. Use it for side effects that only make sense 
 
 ```ts
 import { afterCreate } from '@adonisjs/lucid/orm'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @afterCreate()
   static async sendWelcomeEmail(user: User) {
     await mail.send((message) => {
@@ -180,9 +180,9 @@ Fires before the `UPDATE`. Use it to enforce invariants that apply to updates on
 
 ```ts
 import { beforeUpdate } from '@adonisjs/lucid/orm'
-import { ProjectsSchema } from '#database/schema'
+import { ProjectSchema } from '#database/schema'
 
-export default class Project extends ProjectsSchema {
+export default class Project extends ProjectSchema {
   @beforeUpdate()
   static lockTenantId(project: Project) {
     if (project.$dirty.tenantId) {
@@ -202,9 +202,9 @@ Fires before the `DELETE`. Use it for validations or cleanup that must happen be
 
 ```ts
 import { beforeDelete } from '@adonisjs/lucid/orm'
-import { ProjectsSchema } from '#database/schema'
+import { ProjectSchema } from '#database/schema'
 
-export default class Project extends ProjectsSchema {
+export default class Project extends ProjectSchema {
   @beforeDelete()
   static async guardActiveProjects(project: Project) {
     if (project.status === 'active') {
@@ -220,9 +220,9 @@ Fires after the row is deleted. Common uses include removing cached copies, noti
 
 ```ts
 import { afterDelete } from '@adonisjs/lucid/orm'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   @afterDelete()
   static async removeFromCache(post: Post) {
     await cache.delete(`post-${post.id}`)
@@ -243,9 +243,9 @@ Find-style queries include `Model.find`, `Model.findBy`, `Model.first`, `Model.f
 ```ts
 import { beforeFind } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @beforeFind()
   static filterDeleted(query: ModelQueryBuilderContract<typeof User>) {
     query.whereNull('deleted_at')
@@ -259,9 +259,9 @@ Fires after a find-style query returns. Receives the model instance. Use it to d
 
 ```ts
 import { afterFind } from '@adonisjs/lucid/orm'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @afterFind()
   static async trackAccess(user: User) {
     await accessLog.record(user.id)
@@ -276,9 +276,9 @@ Fires before any query that resolves to multiple rows (executed with `await` or 
 ```ts
 import { beforeFetch } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @beforeFetch()
   static filterDeleted(query: ModelQueryBuilderContract<typeof User>) {
     query.whereNull('deleted_at')
@@ -294,9 +294,9 @@ Fires after a multi-row query returns. Receives an array of model instances.
 
 ```ts
 import { afterFetch } from '@adonisjs/lucid/orm'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @afterFetch()
   static warmCache(users: User[]) {
     for (const user of users) {
@@ -321,9 +321,9 @@ Receives a tuple of two query builders: the count query (used to compute `total`
 ```ts
 import { beforePaginate } from '@adonisjs/lucid/orm'
 import type { ModelQueryBuilderContract } from '@adonisjs/lucid/types/model'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @beforePaginate()
   static filterDeleted([countQuery, query]: [
     ModelQueryBuilderContract<typeof User>,
@@ -342,9 +342,9 @@ Receives the `ModelPaginator` instance that `paginate` will resolve to. Use it f
 ```ts
 import { afterPaginate } from '@adonisjs/lucid/orm'
 import type { ModelPaginatorContract } from '@adonisjs/lucid/types/model'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @afterPaginate()
   static logUsage(paginator: ModelPaginatorContract<User>) {
     logger.debug({ count: paginator.all().length, page: paginator.currentPage }, 'users paginated')
@@ -362,9 +362,9 @@ To guarantee a side effect only runs after the transaction commits, check whethe
 // title: app/models/project.ts
 import { afterSave } from '@adonisjs/lucid/orm'
 import queue from '@adonisjs/queue/services/queue'
-import { ProjectsSchema } from '#database/schema'
+import { ProjectSchema } from '#database/schema'
 
-export default class Project extends ProjectsSchema {
+export default class Project extends ProjectSchema {
   @afterSave()
   static async enqueueIndexJob(project: Project) {
     const indexProject = () => queue.dispatch('projects.index', { id: project.id })

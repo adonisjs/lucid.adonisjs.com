@@ -20,10 +20,10 @@ A relationship connects one model to another through a shared column. You declar
 // title: app/models/user.ts
 import { hasMany } from '@adonisjs/lucid/orm'
 import type { HasMany } from '@adonisjs/lucid/types/relations'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 import Post from '#models/post'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @hasMany(() => Post)
   declare posts: HasMany<typeof Post>
 }
@@ -33,10 +33,10 @@ export default class User extends UsersSchema {
 // title: app/models/post.ts
 import { belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 import User from '#models/user'
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   @belongsTo(() => User)
   declare author: BelongsTo<typeof User>
 }
@@ -130,10 +130,10 @@ export default class extends BaseSchema {
 // title: app/models/post.ts
 import { belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 import User from '#models/user'
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   @belongsTo(() => User)
   declare author: BelongsTo<typeof User>
 }
@@ -172,10 +172,10 @@ export default class extends BaseSchema {
 // title: app/models/user.ts
 import { hasOne } from '@adonisjs/lucid/orm'
 import type { HasOne } from '@adonisjs/lucid/types/relations'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 import Profile from '#models/profile'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @hasOne(() => Profile)
   declare profile: HasOne<typeof Profile>
 }
@@ -213,10 +213,10 @@ export default class extends BaseSchema {
 // title: app/models/user.ts
 import { hasMany } from '@adonisjs/lucid/orm'
 import type { HasMany } from '@adonisjs/lucid/types/relations'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 import Post from '#models/post'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @hasMany(() => Post)
   declare posts: HasMany<typeof Post>
 }
@@ -249,10 +249,10 @@ export default class extends BaseSchema {
 // title: app/models/user.ts
 import { manyToMany } from '@adonisjs/lucid/orm'
 import type { ManyToMany } from '@adonisjs/lucid/types/relations'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 import Skill from '#models/skill'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @manyToMany(() => Skill)
   declare skills: ManyToMany<typeof Skill>
 }
@@ -288,11 +288,11 @@ table
 // title: app/models/country.ts
 import { hasManyThrough } from '@adonisjs/lucid/orm'
 import type { HasManyThrough } from '@adonisjs/lucid/types/relations'
-import { CountriesSchema } from '#database/schema'
+import { CountrySchema } from '#database/schema'
 import Post from '#models/post'
 import User from '#models/user'
 
-export default class Country extends CountriesSchema {
+export default class Country extends CountrySchema {
   @hasManyThrough([() => Post, () => User])
   declare posts: HasManyThrough<typeof Post>
 }

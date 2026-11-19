@@ -178,9 +178,9 @@ The generated model extends the schema class for the `posts` table, so you do no
 
 ```ts
 // title: app/models/post.ts
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 
-export default class Post extends PostsSchema {}
+export default class Post extends PostSchema {}
 ```
 
 Use the model inside a controller. `Post.create()` inserts a row and returns a model instance, and `Post.query()` returns a typed query builder scoped to the `posts` table.

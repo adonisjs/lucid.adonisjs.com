@@ -20,10 +20,10 @@ A `belongsTo` relationship declares that your model holds a foreign key column p
 // title: app/models/post.ts
 import { belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
-import { PostsSchema } from '#database/schema'
+import { PostSchema } from '#database/schema'
 import User from '#models/user'
 
-export default class Post extends PostsSchema {
+export default class Post extends PostSchema {
   @belongsTo(() => User)
   declare author: BelongsTo<typeof User>
 }

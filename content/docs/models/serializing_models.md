@@ -225,7 +225,7 @@ import { manyToMany } from '@adonisjs/lucid/orm'
 import type { ManyToMany } from '@adonisjs/lucid/types/relations'
 import Skill from '#models/skill'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @manyToMany(() => Skill, {
     pivotTable: 'user_skills',
     pivotColumns: ['proficiency', 'last_used_at'],
@@ -266,7 +266,7 @@ TypeScript getters on the model surface as regular readable properties. They are
 
 ```ts
 // title: app/models/user.ts
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`.trim()
   }

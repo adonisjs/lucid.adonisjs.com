@@ -20,10 +20,10 @@ A `manyToMany` relationship connects two models through a pivot table that holds
 // title: app/models/user.ts
 import { manyToMany } from '@adonisjs/lucid/orm'
 import type { ManyToMany } from '@adonisjs/lucid/types/relations'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 import Skill from '#models/skill'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @manyToMany(() => Skill)
   declare skills: ManyToMany<typeof Skill>
 }

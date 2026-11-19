@@ -21,10 +21,10 @@ A `hasMany` relationship declares that another model holds a foreign key pointin
 // title: app/models/user.ts
 import { hasMany } from '@adonisjs/lucid/orm'
 import type { HasMany } from '@adonisjs/lucid/types/relations'
-import { UsersSchema } from '#database/schema'
+import { UserSchema } from '#database/schema'
 import Post from '#models/post'
 
-export default class User extends UsersSchema {
+export default class User extends UserSchema {
   @hasMany(() => Post)
   declare posts: HasMany<typeof Post>
 }
