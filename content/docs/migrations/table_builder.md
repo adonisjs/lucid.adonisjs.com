@@ -369,6 +369,28 @@ table.string('email').collate('utf8_unicode_ci')
 
 Foreign keys can be declared inline as a column modifier or table-level for composite keys. Both shapes share the same downstream methods.
 
+### foreignId and constrained
+
+Use `foreignId` to create a non-nullable unsigned big integer column and `constrained` to define its foreign key. With no arguments, `constrained` removes the `_id` suffix from the column name, pluralizes the result, and references the `id` column. Therefore, `user_id` references `users.id`.
+
+```ts
+table.foreignId('user_id').constrained().onDelete('CASCADE')
+```
+
+Call `nullable` before `constrained` when the relationship is optional.
+
+```ts
+table.foreignId('user_id').nullable().constrained()
+```
+
+You may override the inferred table name, referenced column, and foreign key name.
+
+```ts
+table
+  .foreignId('author_id')
+  .constrained('members', 'member_id', 'posts_author_id_foreign')
+```
+
 ### references and inTable
 
 Define the referenced column and table. The shorthand `references('table.column')` combines both.
