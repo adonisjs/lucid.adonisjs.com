@@ -226,15 +226,15 @@ export default class User extends UserSchema {
 
 A user has many skills, and each skill belongs to many users. A pivot table holds foreign keys to both sides. Neither model holds a direct foreign key to the other.
 
-<!-- Image placeholder: diagram of User <-> user_skills pivot <-> Skill, annotated many-to-many with pivot attributes -->
+<!-- Image placeholder: diagram of User <-> skill_user pivot <-> Skill, annotated many-to-many with pivot attributes -->
 
 ```ts
-// title: database/migrations/xxxx_create_user_skills_table.ts
+// title: database/migrations/xxxx_create_skill_user_table.ts
 import { BaseSchema } from '@adonisjs/lucid/schema'
 
 export default class extends BaseSchema {
   async up() {
-    this.schema.createTable('user_skills', (table) => {
+    this.schema.createTable('skill_user', (table) => {
       table.increments('id')
       table.integer('user_id').unsigned().notNullable().references('users.id').onDelete('CASCADE')
       table.integer('skill_id').unsigned().notNullable().references('skills.id').onDelete('CASCADE')
@@ -253,7 +253,7 @@ import { UserSchema } from '#database/schema'
 import Skill from '#models/skill'
 
 export default class User extends UserSchema {
-  @manyToMany(() => Skill, { pivotTable: 'user_skills' })
+  @manyToMany(() => Skill)
   declare skills: ManyToMany<typeof Skill>
 }
 ```
