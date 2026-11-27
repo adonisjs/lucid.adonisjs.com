@@ -192,6 +192,12 @@
     "category": "Relationships"
   },
   {
+    "permalink": "custom-relationships",
+    "title": "Custom relationships",
+    "contentPath": "./relationships/custom_relationships.md",
+    "category": "Relationships"
+  },
+  {
     "permalink": "testing",
     "title": "Testing utilities",
     "contentPath": "./testing/introduction.md",
