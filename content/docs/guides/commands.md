@@ -847,7 +847,7 @@ List status for the given connection.
 
 Creates the database of the given connection when it does not exist yet. The command is a no-op when the database already exists, which makes it safe to run in bootstrap scripts and CI pipelines before `migration:run`.
 
-Since the target database may not exist, Lucid does not use the regular connection. Instead, it connects to the maintenance database of the dialect (`postgres` on PostgreSQL and Redshift, `master` on MSSQL, no database on MySQL) to issue the `CREATE DATABASE` statement. On SQLite and libSQL, the database file is created alongside any missing parent directories.
+Since the target database may not exist, Lucid does not use the regular connection. Instead, it connects to the maintenance database of the dialect (`postgres` on PostgreSQL, `dev` on Redshift, `master` on MSSQL, no database on MySQL) to issue the `CREATE DATABASE` statement. On SQLite and libSQL, the database file is created alongside any missing parent directories.
 
 ```sh
 // title: terminal
