@@ -4,7 +4,10 @@ import adonisjs from '@adonisjs/vite/client'
 export default defineConfig({
   plugins: [
     adonisjs({
-      entrypoints: ['./assets/app.js', './assets/app.css'],
+      entryPoints: ['./assets/app.js', './assets/app.css'],
+      assets: {
+        chunks: ['content/**/*.(png|jpg|jpeg)'],
+      },
       reload: ['content/**/*', 'templates/**/*.edge'],
     }),
   ],
