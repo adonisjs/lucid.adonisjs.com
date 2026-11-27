@@ -307,3 +307,4 @@ Each relationship type has its own guide that covers loading, querying, persisti
 - [ManyToMany](./many_to_many.md) for pivot-backed many-to-many, including pivot columns, timestamps, and the attach, detach, and sync API
 - [HasOne](./has_one.md) for one-to-one from the referenced side
 - [HasManyThrough](./has_many_through.md) for traversing an intermediate model
+- [Custom relationships](./custom_relationships.md) for adding your own relationship types from a package
